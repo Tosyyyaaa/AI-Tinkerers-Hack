@@ -1,15 +1,19 @@
-# Weather MCP Agent 🌤️🎵
+# AI Tinkerers Hack - Music & Vibe Analysis Projects
+
+This repository contains two innovative AI-powered music projects developed for hackathons:
+
+## 🌤️ Weather MCP Agent
 
 A minimal Agno agent with MCP (Model Context Protocol) weather tool for environment-aware music recommendations.
 
-## Features
+### Features
 
 - **MCP Weather Server**: Stateless weather tool that returns music-friendly weather buckets
 - **Agno Agent Integration**: Uses MCPTools to connect with the weather server
 - **FastAPI Endpoint**: Simple REST API for weather bucket queries
 - **Environment-Aware**: Maps weather conditions to music categories (sunny/cloudy/rainy/windy/night)
 
-## Architecture
+### Architecture
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
@@ -26,9 +30,9 @@ A minimal Agno agent with MCP (Model Context Protocol) weather tool for environm
                                                 └─────────────────┘
 ```
 
-## Quick Start
+### Quick Start (Weather MCP Agent)
 
-### 1. Install Dependencies
+#### 1. Install Dependencies
 
 **Option A: Quick Install**
 ```bash
@@ -43,7 +47,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Setup Environment Variables
+#### 2. Setup Environment Variables
 
 ```bash
 cp .env.example .env
@@ -54,7 +58,7 @@ Get your API keys:
 - **OpenWeather API**: [openweathermap.org/api](https://openweathermap.org/api) (free tier available)
 - **OpenRouter API**: [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) (for DeepSeek access)
 
-### 3. Test the Installation
+#### 3. Test the Installation
 
 ```bash
 # Test the MCP server directly
@@ -66,9 +70,9 @@ python agno_weather_agent.py
 
 The API will be available at `http://localhost:8000`
 
-## API Usage
+### API Usage
 
-### Get Weather Bucket
+#### Get Weather Bucket
 
 ```bash
 curl "http://localhost:8000/weather?city=London"
@@ -83,13 +87,13 @@ curl "http://localhost:8000/weather?city=London"
 }
 ```
 
-### Available Endpoints
+#### Available Endpoints
 
 - `GET /` - API information
 - `GET /health` - Health check
 - `GET /weather?city={city}` - Get weather bucket for city
 
-## Weather Buckets
+### Weather Buckets
 
 The agent maps weather conditions to music-friendly categories:
 
@@ -101,159 +105,215 @@ The agent maps weather conditions to music-friendly categories:
 | `windy` | Strong winds, storms | Dynamic, powerful music |
 | `night` | Nighttime (regardless of conditions) | Calm, atmospheric music |
 
-## MCP Server Details
+---
 
-### Tool Schema
+## 🎵
+# DJBuddy - Webcam Vibe Check
 
-```json
-{
-  "name": "get_weather",
-  "description": "Get current weather for a city and return a weather bucket",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "city": {
-        "type": "string",
-        "description": "City name (e.g., 'London', 'New York', 'Tokyo')"
-      }
-    },
-    "required": ["city"]
-  },
-  "outputSchema": {
-    "type": "object",
-    "properties": {
-      "bucket": {
-        "type": "string",
-        "enum": ["sunny", "cloudy", "rainy", "windy", "night"]
-      }
-    }
-  }
-}
-```
+AI-powered webcam vibe analysis with music adaptation using computer vision, Anthropic Claude, ElevenLabs TTS, and Spotify Web Playback SDK.
 
-### Running MCP Server Standalone
+## Features
+
+- **Real-time Computer Vision**: Webcam analysis for brightness, motion, face detection, and smile recognition
+- **Advanced Audio Analysis**: soundDevice-inspired audio processing for volume, energy, noise detection, speech recognition, and spectral analysis
+- **Live Weather Integration**: Real-time weather data with geolocation support and manual city selection
+- **AI Vibe Interpretation**: Uses Anthropic Claude to interpret combined audio-visual stats and suggest music adaptations
+- **Text-to-Speech Coaching**: ElevenLabs TTS provides spoken tips based on detected vibes
+- **Music Integration**: Supports both Spotify Web Playback SDK and local audio playback
+- **Privacy-First**: All video and audio analysis happens locally - no media leaves your device
+- **Modern UI**: Beautiful, responsive 4-column interface built with Next.js 14 and Tailwind CSS
+
+## Vibe Classifications
+
+Enhanced with audio-visual analysis:
+
+- **Party**: (High motion + multiple faces) OR (high audio energy + volume) → Upbeat music (124-136 BPM)
+- **Chill**: (Low brightness + minimal motion) OR (quiet audio + low noise) → Relaxed music (80-105 BPM)  
+- **Focused**: (Smiles + moderate motion) OR (speech detection + moderate audio energy) → Concentration music (95-120 BPM)
+- **Bored**: Low engagement across both visual and audio → Energy boost music + skip action
+
+## Technology Stack
+
+- **Framework**: Next.js 14 with App Router, React, TypeScript
+- **Styling**: Tailwind CSS with custom animations
+- **Computer Vision**: MediaPipe Face Detection, TensorFlow.js (fallback)
+- **Audio Analysis**: Web Audio API with FFT analysis, pitch detection, spectral analysis (inspired by soundDevice)
+- **AI Integration**: Anthropic Claude API for audio-visual vibe interpretation
+- **Audio**: 
+  - ElevenLabs TTS API for speech synthesis
+  - Spotify Web Playback SDK for premium users
+  - Web Audio API for local playback with dynamics compression
+- **Privacy**: Client-side only audio/video analysis, no server-side ML
+
+## Setup Instructions
+
+### 1. Install Dependencies
 
 ```bash
-python mcp_weather_server.py
+npm install
 ```
 
-The server uses stdio for MCP communication and can be integrated with any MCP-compatible client.
+### 2. Environment Variables
 
-## Development
+Create a `.env.local` file with your API keys:
 
-### Project Structure
+```env
+# Required: Anthropic API for vibe interpretation
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
 
-```
-weather-mcp-agent/
-├── mcp_weather_server.py   # MCP server implementation
-├── agno_weather_agent.py   # Agno agent + FastAPI app
-├── mcp.json                # MCP manifest
-├── requirements.txt        # Python dependencies
-├── .env.example           # Environment variables template
-└── README.md              # This file
-```
+# Required: ElevenLabs API for text-to-speech
+ELEVEN_API_KEY=your_elevenlabs_api_key_here
 
-### Testing Without API Keys
+# OpenWeatherMap API for weather data
+OPENWEATHER_API_KEY=your_openweather_api_key_here
 
-The MCP server includes mock data for development:
-
-- If `OPENWEATHER_API_KEY` is not set, returns "sunny" as default
-- Agent requires `OPENAI_API_KEY` to function
-
-### Customizing Weather Logic
-
-Edit `WEATHER_CONDITION_TO_BUCKET` in `mcp_weather_server.py` to modify weather-to-bucket mapping:
-
-```python
-WEATHER_CONDITION_TO_BUCKET = {
-    800: "sunny",     # Clear sky
-    801: "cloudy",    # Few clouds
-    500: "rainy",     # Light rain
-    # ... add your custom mappings
-}
+# Optional: Spotify Web API credentials (for premium features)
+SPOTIFY_CLIENT_ID=your_spotify_client_id_here
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
 ```
 
-## Example Requests
+### 3. Get API Keys
 
-### Sunny Weather
+#### Anthropic API Key
+1. Visit [console.anthropic.com](https://console.anthropic.com)
+2. Create an account and add credits
+3. Generate an API key in the API Keys section
+
+#### ElevenLabs API Key
+1. Visit [elevenlabs.io](https://elevenlabs.io)
+2. Sign up for an account (free tier available)
+3. Go to Profile → API Key to generate your key
+
+#### OpenWeatherMap API Key
+1. Visit [openweathermap.org](https://openweathermap.org/api)
+2. Sign up for a free account (1000 calls/day free tier)
+3. Generate an API key in your account dashboard
+
+#### Spotify Credentials (Optional)
+1. Visit [developer.spotify.com](https://developer.spotify.com)
+2. Create an app in your dashboard
+3. Note your Client ID and Client Secret
+4. Add `http://localhost:3000` to redirect URIs
+
+### 4. Run Development Server
+
 ```bash
-curl "http://localhost:8000/weather?city=Phoenix"
-# Response: {"city": "Phoenix", "bucket": "sunny", "message": "..."}
+npm run dev
 ```
 
-### Rainy Weather
-```bash
-curl "http://localhost:8000/weather?city=Seattle"
-# Response: {"city": "Seattle", "bucket": "rainy", "message": "..."}
-```
+Visit [http://localhost:3000](http://localhost:3000) to see the application.
 
-### Night Time
-```bash
-curl "http://localhost:8000/weather?city=Tokyo"
-# Response: {"city": "Tokyo", "bucket": "night", "message": "..."} (if it's nighttime in Tokyo)
-```
+## Usage
 
-## MCP Standards Compliance
+1. **Grant Camera Permission**: Click "Start Vibe Check" and allow webcam access
+2. **Live Analysis**: Watch real-time metrics for brightness, motion, faces, and smiles
+3. **Vibe Detection**: AI interprets your room's vibe every 1-2 seconds
+4. **Music Adaptation**: Volume and track selection adapt based on detected vibe
+5. **Voice Coaching**: Hear AI-generated tips through ElevenLabs TTS
 
-This implementation follows the latest MCP specification (2025-06-18):
+## Testing Features
 
-- ✅ JSON-RPC 2.0 protocol
-- ✅ Tool schema validation
-- ✅ Error handling
-- ✅ Manifest file (`mcp.json`)
-- ✅ Stateless operation
-- ✅ Capability declaration
+- **Test Spotify**: Enter an access token to test Spotify Web Playback SDK integration
+- **Test TTS**: Verify ElevenLabs text-to-speech functionality
+- **Privacy Mode**: All video analysis happens locally on your device
+
+## Architecture
+
+### Client-Side Components
+- `useVibeSensors`: Webcam capture and computer vision analysis
+- `SpotifyClient`: Web Playback SDK integration with volume control
+- `LocalAudioPlayer`: Web Audio API with gain control and compression
+- `interpretVibe`: Client wrapper for AI vibe interpretation
+
+### Server-Side APIs
+- `/api/interpret-vibe`: Anthropic Claude integration for vibe analysis
+- `/api/tts`: ElevenLabs text-to-speech conversion
+
+### Audio-Visual Analysis Pipeline
+
+**Computer Vision:**
+1. **Frame Capture**: 640x480 webcam feed at ~1 FPS analysis rate
+2. **Brightness**: RGB → Luma conversion with rolling average smoothing
+3. **Motion Detection**: Frame difference with exponential moving average
+4. **Colour Temperature**: R/B ratio estimation (2500K-6500K range)
+5. **Face Detection**: MediaPipe Face Detection (with basic fallback)
+
+**Audio Analysis (soundDevice-inspired):**
+1. **Audio Capture**: Microphone input with Web Audio API
+2. **Volume/Energy**: RMS calculation for overall and spectral energy
+3. **Pitch Detection**: Autocorrelation-based fundamental frequency estimation
+4. **Spectral Analysis**: FFT-based spectral centroid and rolloff calculation
+5. **Speech Detection**: Heuristic-based speech probability estimation
+6. **Noise Floor**: Adaptive background noise level estimation
+
+### Privacy & Safety
+- **No Upload**: Video frames and audio never leave your device
+- **Local Processing**: All computer vision and audio analysis runs in your browser
+- **Microphone Privacy**: Explicit permission required, audio analysis is local-only
+- **Input Validation**: All API inputs are sanitised and validated
+- **Rate Limiting**: Built-in debouncing for API calls and music changes
+
+## Browser Compatibility
+
+- **Chrome/Edge**: Full support including MediaPipe
+- **Firefox**: Supported with basic face detection fallback
+- **Safari**: Supported with Web Audio API compatibility layer
+- **Mobile**: Responsive design, works on tablets and phones
 
 ## Troubleshooting
 
-### Import Errors
-If you see MCP import errors:
-```bash
-pip install --upgrade model-context-protocol
-# or try:
-pip install mcp
-```
+### Camera Issues
+- Ensure browser has camera permission
+- Try refreshing the page if video doesn't appear
+- Check if other applications are using the camera
 
-### Dependencies Issues
-```bash
-# Clean install
-rm -rf venv
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
+### API Issues
+- Verify API keys are correctly set in `.env.local`
+- Check browser console for detailed error messages
+- Ensure you have credits/quota remaining for paid APIs
 
-### API Key Issues
-- **OpenWeather**: Get free key at [openweathermap.org](https://openweathermap.org/api)
-- **OpenRouter**: Required for DeepSeek access - get key at [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys)
-- Without OpenWeather key: MCP server will use mock data
-- Without OpenRouter key: Agent won't work
+### Audio Issues
+- Click anywhere on the page to enable Web Audio (browser requirement)
+- Check browser audio permissions
+- Ensure speakers/headphones are connected
 
-### DeepSeek Model Benefits
-- **Advanced Reasoning**: Superior logical thinking and problem-solving
-- **Cost-Effective**: Very competitive pricing through OpenRouter
-- **Fast Inference**: Quick response times for real-time applications
-- **Instruction Following**: Excellent at following complex instructions
-- **Structured Output**: Reliable JSON and formatted responses
+## Development
 
-### Testing Without Keys
-- **MCP Server**: `python test_weather.py` to test weather logic with mock data
-- **OpenRouter Setup**: `python test_openrouter_deepseek.py` to verify DeepSeek configuration
-- **Full Integration**: `python live_weather_test.py` to test with real weather data
+### Code Quality
+- TypeScript strict mode enabled
+- ESLint configuration included
+- Zero lint errors required
+- Comprehensive error handling
+
+### Performance
+- Optimised computer vision (samples every 4th-16th pixel)
+- Debounced API calls (volume changes, track skips)
+- Efficient React hooks with proper cleanup
+- Web Audio API for low-latency audio processing
+
+### Extensibility
+- MCP (Model Context Protocol) tool interfaces defined
+- Modular architecture for easy feature additions
+- Configurable analysis parameters
+- Plugin-ready audio system
 
 ## License
 
-MIT License - feel free to use this as a starting point for your own MCP projects!
+This project is for demonstration purposes. Please ensure you comply with all API terms of service for Anthropic, ElevenLabs, and Spotify.
 
 ## Contributing
 
-This is a hackathon-ready minimal implementation. Feel free to extend it with:
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes with proper TypeScript types
+4. Ensure zero lint errors
+5. Test thoroughly across browsers
+6. Submit a pull request
 
-- Multiple weather data sources
-- More sophisticated music recommendations
-- Historical weather data
-- Location-based playlists
-- Integration with music streaming APIs
+## Acknowledgements
 
-Happy hacking! 🚀
+- **MediaPipe** for face detection models
+- **Anthropic** for Claude AI integration  
+- **ElevenLabs** for high-quality text-to-speech
+- **Spotify** for Web Playback SDK
+- **Next.js & Vercel** for the amazing development framework

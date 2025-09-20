@@ -1,5 +1,24 @@
+# Dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js
+/.next/
+/out/
+
+# Production
+/build
+
 # Environment variables
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Python cache
 __pycache__/
@@ -10,6 +29,14 @@ __pycache__/
 venv/
 env/
 ENV/
+env.bak/
+venv.bak/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
 
 # IDE files
 .vscode/
@@ -21,9 +48,8 @@ ENV/
 # OS files
 .DS_Store
 Thumbs.db
-
-# Logs
-*.log
+*.tsbuildinfo
+next-env.d.ts
 
 # Distribution / packaging
 .Python
@@ -70,14 +96,6 @@ celerybeat-schedule
 
 # SageMath parsed files
 *.sage.py
-
-# Environments
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
 
 # mypy
 .mypy_cache/
