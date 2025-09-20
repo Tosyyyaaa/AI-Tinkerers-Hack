@@ -393,6 +393,12 @@ function VibeCheckPageInner() {
   const [lastVibeCheck, setLastVibeCheck] = useState<number>(0);
   const [audioPlaying, setAudioPlaying] = useState(false);
 
+  // State for URL context feature
+  const [eventUrl, setEventUrl] = useState('');
+  const [isExtractingEvent, setIsExtractingEvent] = useState(false);
+  const [eventVibeData, setEventVibeData] = useState<any>(null);
+  const [urlVibeError, setUrlVibeError] = useState<string | null>(null);
+
   // Audio players
   const spotifyClient = useRef(getSpotifyClient());
   const localPlayer = useRef(getLocalPlayer({
@@ -599,6 +605,75 @@ function VibeCheckPageInner() {
       setIsProcessing(false);
     }
   }, []);
+
+  // Extract event vibe from URL
+  const extractEventVibe = useCallback(async () => {
+    if (!eventUrl.trim()) return;
+
+    setIsExtractingEvent(true);
+    setUrlVibeError(null);
+    setEventVibeData(null);
+
+    try {
+      console.log('🌐 Extracting event vibe from URL:', eventUrl);
+
+      const response = await fetch('/api/extract-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: eventUrl.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Failed to extract event data: ${response.status}`);
+      }
+
+      if (data.success && data.eventData) {
+        console.log('✅ Event data extracted successfully:', data.eventData);
+        setEventVibeData(data.eventData);
+        setUrlVibeError(null);
+      } else {
+        throw new Error('No event data returned from API');
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to extract event vibe:', error);
+      setUrlVibeError(error instanceof Error ? error.message : 'Failed to extract event data');
+      setEventVibeData(null);
+    } finally {
+      setIsExtractingEvent(false);
+    }
+  }, [eventUrl]);
+
+  // Apply extracted event vibe as current vibe
+  const applyEventVibe = useCallback(() => {
+    if (!eventVibeData) return;
+
+    console.log('✨ Applying event vibe as current vibe:', eventVibeData);
+
+    // Create a VibeDecision from the event data
+    const eventVibeDecision = {
+      vibeLabel: eventVibeData.vibeLabel,
+      suggestedBPM: eventVibeData.suggestedBPM,
+      suggestedVolume: eventVibeData.suggestedVolume,
+      spokenTip: `Event vibe: ${eventVibeData.vibeDescription}`,
+      action: 'keep' as const,
+    };
+
+    // Update the vibe state with the event vibe
+    setVibeState(prev => ({
+      ...prev,
+      decision: eventVibeDecision,
+    }));
+
+    // Mark this as an AI decision since it came from Gemini
+    setIsAIDecision(true);
+
+    // Show success message
+    console.log('🎉 Event vibe applied successfully!');
+
+  }, [eventVibeData]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -917,6 +992,120 @@ function VibeCheckPageInner() {
           {/* Weather Column */}
           <div className="xl:col-span-1 lg:col-span-3 xl:lg:col-span-1">
             <WeatherWidget />
+          </div>
+        </div>
+
+        {/* URL Context Section */}
+        <div className="mt-6">
+          <div className="stats-card">
+            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white flex items-center gap-2">
+              🌐 Event URL Context
+              <span className="text-xs px-2 py-1 bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300 rounded-full">
+                Powered by Gemini
+              </span>
+            </h2>
+            
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={eventUrl}
+                  onChange={(e) => setEventUrl(e.target.value)}
+                  placeholder="Enter event URL (e.g., concert, festival, conference page)"
+                  disabled={isExtractingEvent}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg 
+                           bg-white dark:bg-gray-700 text-gray-900 dark:text-white
+                           placeholder-gray-500 dark:placeholder-gray-400
+                           focus:ring-2 focus:ring-purple-500 focus:border-transparent
+                           disabled:opacity-50 disabled:cursor-not-allowed"
+                />
+                <button
+                  onClick={extractEventVibe}
+                  disabled={!eventUrl.trim() || isExtractingEvent}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 
+                           text-white rounded-lg font-medium transition-colors
+                           disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {isExtractingEvent ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Analysing...
+                    </>
+                  ) : (
+                    <>
+                      🎯 Extract Vibe
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {urlVibeError && (
+                <div className="p-3 bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-700 rounded-lg">
+                  <div className="text-red-800 dark:text-red-200 text-sm">
+                    {urlVibeError}
+                  </div>
+                </div>
+              )}
+
+              {eventVibeData && (
+                <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 
+                               border border-purple-200 dark:border-purple-700 rounded-lg">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                        {eventVibeData.eventTitle}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <div className={`vibe-label vibe-label-${eventVibeData.vibeLabel} text-xs`}>
+                          {eventVibeData.vibeLabel.toUpperCase()}
+                        </div>
+                        <span className="text-xs px-2 py-1 bg-purple-100 text-purple-600 dark:bg-purple-800 dark:text-purple-300 rounded-full">
+                          🌐 URL Event
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={applyEventVibe}
+                      className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded-lg
+                               font-medium transition-colors flex items-center gap-1"
+                    >
+                      ✨ Apply Vibe
+                    </button>
+                  </div>
+                  
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                    {eventVibeData.vibeDescription}
+                  </p>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400">BPM:</span>
+                      <span className="ml-2 font-medium">{eventVibeData.suggestedBPM}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400">Volume:</span>
+                      <span className="ml-2 font-medium">{Math.round(eventVibeData.suggestedVolume * 100)}%</span>
+                    </div>
+                    {eventVibeData.eventDate && (
+                      <div className="col-span-2">
+                        <span className="text-gray-500 dark:text-gray-400">Date:</span>
+                        <span className="ml-2 font-medium">{eventVibeData.eventDate}</span>
+                      </div>
+                    )}
+                    {eventVibeData.eventLocation && (
+                      <div className="col-span-2">
+                        <span className="text-gray-500 dark:text-gray-400">Location:</span>
+                        <span className="ml-2 font-medium">{eventVibeData.eventLocation}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-xs text-gray-500 dark:text-gray-400">
+                💡 Enter any event URL (concerts, festivals, conferences, parties) and we'll analyse the vibe using AI
+              </div>
+            </div>
           </div>
         </div>
       </div>
