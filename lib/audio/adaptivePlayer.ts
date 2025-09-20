@@ -2,7 +2,7 @@
 
 import { VibeDecision } from '@/lib/types/vibe';
 import { getSpotifyClient, SpotifyClientCallbacks } from '@/lib/spotify/spotifyClient';
-import { getLocalPlayer, LocalPlayerCallbacks } from '@/lib/audio/localPlayer';
+import { getLocalPlayer, LocalPlayerCallbacks, type AudioTrack } from '@/lib/audio/localPlayer';
 
 export interface AdaptivePlayerCallbacks {
   onPlayerChange?: (playerType: 'spotify' | 'local' | 'none') => void;
@@ -49,6 +49,12 @@ class AdaptivePlayer {
     this.setupSpotifyCallbacks();
     this.setupLocalPlayerCallbacks();
     this.determineActivePlayer();
+  }
+
+  updateCallbacks(callbacks: AdaptivePlayerCallbacks = {}) {
+    this.callbacks = callbacks;
+    this.setupSpotifyCallbacks();
+    this.setupLocalPlayerCallbacks();
   }
 
   private setupSpotifyCallbacks() {
@@ -165,6 +171,42 @@ class AdaptivePlayer {
     } catch (error) {
       console.error('Failed to load local playlist:', error);
       this.callbacks.onError?.('Failed to load local playlist');
+      return false;
+    }
+  }
+
+  async playGeneratedTrack(track: AudioTrack): Promise<boolean> {
+    try {
+      const previousPlayer = this.state.activePlayer;
+      const currentPlaylist = this.localPlayer.getCurrentState().playlist;
+      const dedupedPlaylist = [track, ...currentPlaylist.filter(item => item.id !== track.id)];
+
+      const loaded = await this.localPlayer.loadPlaylist(dedupedPlaylist);
+      if (!loaded) {
+        throw new Error('Failed to load generated track into local player');
+      }
+
+      const played = await this.localPlayer.play();
+      if (!played) {
+        throw new Error('Failed to start playback for generated track');
+      }
+
+      this.state.isLocalReady = true;
+      this.state.activePlayer = 'local';
+      this.state.isPlaying = true;
+      this.state.currentTrack = track;
+
+      if (previousPlayer !== 'local') {
+        this.callbacks.onPlayerChange?.('local');
+      }
+
+      this.callbacks.onTrackChange?.(track);
+      this.callbacks.onPlayStateChange?.(true);
+
+      return true;
+    } catch (error) {
+      console.error('Failed to play generated track:', error);
+      this.callbacks.onError?.('Failed to play generated track');
       return false;
     }
   }
@@ -420,6 +462,8 @@ let adaptivePlayerInstance: AdaptivePlayer | null = null;
 export function getAdaptivePlayer(callbacks?: AdaptivePlayerCallbacks): AdaptivePlayer {
   if (!adaptivePlayerInstance) {
     adaptivePlayerInstance = new AdaptivePlayer(callbacks);
+  } else if (callbacks) {
+    adaptivePlayerInstance.updateCallbacks(callbacks);
   }
   return adaptivePlayerInstance;
 }

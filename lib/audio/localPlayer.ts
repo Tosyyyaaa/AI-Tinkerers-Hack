@@ -33,6 +33,8 @@ class LocalAudioPlayer {
   private gainNode: GainNode | null = null;
   private compressorNode: DynamicsCompressorNode | null = null;
   private sourceNode: MediaElementAudioSourceNode | null = null;
+  private initPromise: Promise<void> | null = null;
+  private isInitialised = false;
   
   private state: LocalPlayerState = {
     isPlaying: false,
@@ -50,11 +52,17 @@ class LocalAudioPlayer {
 
   constructor(callbacks: LocalPlayerCallbacks = {}) {
     this.callbacks = callbacks;
-    this.initialiseAudio();
+    this.initPromise = this.initialiseAudio();
+  }
+
+  updateCallbacks(callbacks: LocalPlayerCallbacks = {}) {
+    this.callbacks = callbacks;
   }
 
   private async initialiseAudio() {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined') {
+      return;
+    }
 
     try {
       // Create audio element
@@ -98,10 +106,31 @@ class LocalAudioPlayer {
         }
       }, 100);
 
+      this.isInitialised = true;
     } catch (error) {
       console.error('Failed to initialise local audio player:', error);
       this.callbacks.onError?.('Failed to initialise audio player');
+      this.isInitialised = false;
     }
+  }
+
+  private async ensureInitialised(): Promise<boolean> {
+    if (this.audioElement) {
+      return true;
+    }
+
+    if (!this.initPromise) {
+      this.initPromise = this.initialiseAudio();
+    }
+
+    try {
+      await this.initPromise;
+    } catch (error) {
+      console.error('Local player initialisation error:', error);
+      return false;
+    }
+
+    return !!this.audioElement;
   }
 
   private setupAudioListeners() {
@@ -128,10 +157,15 @@ class LocalAudioPlayer {
       this.state.duration = this.audioElement?.duration || 0;
     });
 
-    this.audioElement.addEventListener('error', (e) => {
-      const error = this.audioElement?.error;
+    this.audioElement.addEventListener('error', (event) => {
+      // Ignore spurious errors that fire before a source is assigned
+      if (!this.audioElement?.currentSrc) {
+        return;
+      }
+
+      const error = this.audioElement.error;
       let errorMessage = 'Unknown audio error';
-      
+
       if (error) {
         switch (error.code) {
           case MediaError.MEDIA_ERR_ABORTED:
@@ -144,13 +178,20 @@ class LocalAudioPlayer {
             errorMessage = 'Audio decode error';
             break;
           case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-            errorMessage = 'Audio format not supported';
-            break;
+            console.warn('Audio format not supported, skipping track:', this.audioElement.currentSrc);
+            // Auto-skip to next track on format error
+            this.skipToNext().catch(console.error);
+            return;
+          default:
+            errorMessage = `Audio error (code ${error.code})`;
         }
       }
-      
-      console.error('Audio element error:', errorMessage, e);
-      this.callbacks.onError?.(errorMessage);
+
+      console.warn('Audio element warning:', errorMessage, event);
+      // Don't call onError for format issues since we handle them gracefully
+      if (error?.code !== MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
+        this.callbacks.onError?.(errorMessage);
+      }
     });
 
     this.audioElement.addEventListener('volumechange', () => {
@@ -162,6 +203,11 @@ class LocalAudioPlayer {
   }
 
   async loadPlaylist(tracks: AudioTrack[]): Promise<boolean> {
+    const ready = await this.ensureInitialised();
+    if (!ready) {
+      return false;
+    }
+
     this.state.playlist = [...tracks];
     this.state.currentIndex = -1;
     
@@ -173,6 +219,11 @@ class LocalAudioPlayer {
   }
 
   async loadTrack(index: number): Promise<boolean> {
+    const ready = await this.ensureInitialised();
+    if (!ready) {
+      return false;
+    }
+
     if (!this.audioElement || index < 0 || index >= this.state.playlist.length) {
       return false;
     }
@@ -186,6 +237,7 @@ class LocalAudioPlayer {
       }
 
       this.audioElement.src = track.url;
+      this.audioElement.load();
       this.state.currentTrack = track;
       this.state.currentIndex = index;
       
@@ -200,7 +252,10 @@ class LocalAudioPlayer {
   }
 
   async play(): Promise<boolean> {
-    if (!this.audioElement) return false;
+    const ready = await this.ensureInitialised();
+    if (!ready || !this.audioElement) {
+      return false;
+    }
 
     try {
       // Resume audio context if needed
@@ -217,8 +272,11 @@ class LocalAudioPlayer {
     }
   }
 
-  pause(): boolean {
-    if (!this.audioElement) return false;
+  async pause(): Promise<boolean> {
+    const ready = await this.ensureInitialised();
+    if (!ready || !this.audioElement) {
+      return false;
+    }
 
     try {
       this.audioElement.pause();
@@ -277,6 +335,11 @@ class LocalAudioPlayer {
   }
 
   async skipToNext(): Promise<boolean> {
+    const ready = await this.ensureInitialised();
+    if (!ready) {
+      return false;
+    }
+
     if (this.state.currentIndex < this.state.playlist.length - 1) {
       return await this.loadTrack(this.state.currentIndex + 1);
     } else if (this.state.playlist.length > 0) {
@@ -287,6 +350,11 @@ class LocalAudioPlayer {
   }
 
   async skipToPrevious(): Promise<boolean> {
+    const ready = await this.ensureInitialised();
+    if (!ready) {
+      return false;
+    }
+
     if (this.state.currentIndex > 0) {
       return await this.loadTrack(this.state.currentIndex - 1);
     } else if (this.state.playlist.length > 0) {
@@ -339,7 +407,10 @@ class LocalAudioPlayer {
 
   // Play TTS audio from ElevenLabs
   async playTTS(audioBuffer: ArrayBuffer): Promise<boolean> {
-    if (!this.audioContext) return false;
+    const ready = await this.ensureInitialised();
+    if (!ready || !this.audioContext) {
+      return false;
+    }
 
     try {
       // Decode audio data
@@ -413,6 +484,9 @@ class LocalAudioPlayer {
       this.audioContext = null;
     }
 
+    this.initPromise = null;
+    this.isInitialised = false;
+
     // Reset state
     this.state = {
       isPlaying: false,
@@ -426,26 +500,26 @@ class LocalAudioPlayer {
   }
 }
 
-// Default playlist with some demo tracks
+// Default playlist with working demo tracks
 export const DEFAULT_PLAYLIST: AudioTrack[] = [
   {
     id: 'demo-1',
     name: 'Chill Ambient',
-    url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav', // Placeholder
+    url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav',
     bpm: 95,
     genre: 'ambient',
   },
   {
     id: 'demo-2',
     name: 'Upbeat Electronic',
-    url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav', // Placeholder
+    url: 'https://files.freemusicarchive.org/storage-freemusicarchive-org/music/Creative_Commons/Kevin_MacLeod/Impact/Kevin_MacLeod_-_Impact_Moderato.mp3',
     bpm: 128,
     genre: 'electronic',
   },
   {
     id: 'demo-3',
     name: 'Focus Music',
-    url: 'https://www.soundjay.com/misc/sounds/bell-ringing-05.wav', // Placeholder
+    url: 'https://files.freemusicarchive.org/storage-freemusicarchive-org/music/Creative_Commons/Kevin_MacLeod/Gentle/Kevin_MacLeod_-_Wallpaper.mp3',
     bpm: 110,
     genre: 'lo-fi',
   },
@@ -457,6 +531,8 @@ let localPlayerInstance: LocalAudioPlayer | null = null;
 export function getLocalPlayer(callbacks?: LocalPlayerCallbacks): LocalAudioPlayer {
   if (!localPlayerInstance) {
     localPlayerInstance = new LocalAudioPlayer(callbacks);
+  } else if (callbacks) {
+    localPlayerInstance.updateCallbacks(callbacks);
   }
   return localPlayerInstance;
 }

@@ -50,7 +50,8 @@ function validateTTSRequest(data: any): TTSRequest | null {
 export async function POST(request: NextRequest) {
   try {
     // Check API key
-    if (!process.env.ELEVEN_API_KEY) {
+    const elevenKey = process.env.ELEVEN_API_KEY || process.env.ELEVENLABS_API_KEY;
+    if (!elevenKey) {
       return NextResponse.json(
         { error: 'ElevenLabs API key not configured' },
         { status: 500 }
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
         {
           method: 'POST',
           headers: {
-            'xi-api-key': process.env.ELEVEN_API_KEY,
+            'xi-api-key': elevenKey,
             'Accept': 'audio/mpeg',
             'Content-Type': 'application/json',
           },
@@ -191,7 +192,9 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  if (action === 'stream' && process.env.ELEVEN_API_KEY) {
+  const elevenKey = process.env.ELEVEN_API_KEY || process.env.ELEVENLABS_API_KEY;
+
+  if (action === 'stream' && elevenKey) {
     // For WebSocket streaming, we'd need to upgrade the connection
     // For now, return streaming capability info
     return NextResponse.json({

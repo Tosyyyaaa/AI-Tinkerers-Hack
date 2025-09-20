@@ -77,8 +77,10 @@ export const MCP_VIBE_TOOLS: MCPVibeTools = {
 
 // Fallback vibe interpretation using simple heuristics
 function generateFallbackDecision(stats: RoomStats): VibeDecision {
-  const { 
-    faces, smiles, avgBrightness, colorTempK, motionLevel,
+  const {
+    avgBrightness, colorTempK, motionLevel,
+    faces, smiles,
+    motionZones, crowdDensity, styleIndicator, lightingPattern,
     audioVolume, audioEnergy, noiseLevel, speechProbability, pitch, spectralCentroid
   } = stats;
 
@@ -88,8 +90,8 @@ function generateFallbackDecision(stats: RoomStats): VibeDecision {
   let suggestedVolume: number;
   let action: VibeDecision['action'] = 'keep';
 
-  // PARTY: High visual motion + faces OR high audio energy + volume
-  if ((motionLevel > 0.6 && faces >= 2) || (audioEnergy > 0.7 && audioVolume > 0.5)) {
+  // PARTY: High visual motion + crowd density OR high audio energy + volume
+  if ((motionLevel > 0.6 && crowdDensity > 0.5) || (audioEnergy > 0.7 && audioVolume > 0.5)) {
     vibeLabel = 'party';
     suggestedBPM = 124 + Math.floor(Math.random() * 12); // 124-136
     suggestedVolume = 0.75 + Math.random() * 0.15; // 0.75-0.9
@@ -100,8 +102,8 @@ function generateFallbackDecision(stats: RoomStats): VibeDecision {
     suggestedBPM = 80 + Math.floor(Math.random() * 25); // 80-105
     suggestedVolume = 0.55 + Math.random() * 0.15; // 0.55-0.7
   } 
-  // FOCUSED: Smiles + moderate motion OR high speech probability + moderate audio energy
-  else if ((smiles >= 1 && motionLevel >= 0.3 && motionLevel <= 0.6) || 
+  // FOCUSED: Crowd density + moderate motion OR high speech probability + moderate audio energy
+  else if ((crowdDensity >= 0.3 && motionLevel >= 0.3 && motionLevel <= 0.6) ||
            (speechProbability > 0.6 && audioEnergy >= 0.3 && audioEnergy <= 0.6)) {
     vibeLabel = 'focused';
     suggestedBPM = 95 + Math.floor(Math.random() * 25); // 95-120
@@ -185,14 +187,14 @@ export async function interpretVibe(
     throw new Error('Invalid room stats provided');
   }
 
-  const { 
-    faces, smiles, avgBrightness, colorTempK, motionLevel,
+  const {
+    avgBrightness, colorTempK, motionLevel,
+    faces, smiles,
+    motionZones, crowdDensity, styleIndicator, lightingPattern,
     audioVolume, audioEnergy, noiseLevel, speechProbability, pitch, spectralCentroid
   } = stats;
   
   if (
-    typeof faces !== 'number' || faces < 0 ||
-    typeof smiles !== 'number' || smiles < 0 ||
     typeof avgBrightness !== 'number' || avgBrightness < 0 || avgBrightness > 1 ||
     typeof colorTempK !== 'number' || colorTempK < 1000 || colorTempK > 10000 ||
     typeof motionLevel !== 'number' || motionLevel < 0 || motionLevel > 1 ||

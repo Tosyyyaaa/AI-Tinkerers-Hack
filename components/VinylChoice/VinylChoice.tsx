@@ -79,7 +79,7 @@ export const VinylChoice: React.FC<VinylChoiceProps> = ({
   /**
    * Handle vinyl record selection
    */
-  const handleVinylSelect = useCallback((optionId: string, vinylRef: React.RefObject<HTMLDivElement>) => {
+  const handleVinylSelect = useCallback((optionId: string, vinylRef: React.RefObject<HTMLDivElement | null>) => {
     if (!vinylRef.current) return;
 
     // Pulse animation for selected vinyl
@@ -98,7 +98,7 @@ export const VinylChoice: React.FC<VinylChoiceProps> = ({
   /**
    * Handle individual vinyl hover
    */
-  const handleVinylHover = useCallback((vinylRef: React.RefObject<HTMLDivElement>, isHover: boolean) => {
+  const handleVinylHover = useCallback((vinylRef: React.RefObject<HTMLDivElement | null>, isHover: boolean) => {
     if (!vinylRef.current) return;
 
     gsap.to(vinylRef.current, {
@@ -113,7 +113,7 @@ export const VinylChoice: React.FC<VinylChoiceProps> = ({
   /**
    * Handle keyboard navigation
    */
-  const handleKeyDown = useCallback((e: React.KeyboardEvent, optionId: string, vinylRef: React.RefObject<HTMLDivElement>) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, optionId: string, vinylRef: React.RefObject<HTMLDivElement | null>) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       handleVinylSelect(optionId, vinylRef);

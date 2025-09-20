@@ -1,13 +1,28 @@
 
 'use client';
 
+import type { ReactNode } from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { DUMMY_WRAPPED_SUMMARY } from '@/lib/dummyData';
 
 // Enhanced card component with animations
-const WrappedCard = ({ title, children, className = '', gradient = 'from-purple-900 to-blue-900', index = 0 }) => {
+type WrappedCardProps = {
+  title: string;
+  children: ReactNode;
+  className?: string;
+  gradient?: string;
+  index?: number;
+};
+
+const WrappedCard = ({
+  title,
+  children,
+  className = '',
+  gradient = 'from-purple-900 to-blue-900',
+  index = 0,
+}: WrappedCardProps) => {
   const [isVisible, setIsVisible] = useState(false);
-  const cardRef = useRef(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsVisible(true), index * 200);
@@ -41,15 +56,21 @@ const WrappedCard = ({ title, children, className = '', gradient = 'from-purple-
 };
 
 // Animated counter component
-const AnimatedNumber = ({ value, suffix = '', duration = 2000 }) => {
+type AnimatedNumberProps = {
+  value: number;
+  suffix?: string;
+  duration?: number;
+};
+
+const AnimatedNumber = ({ value, suffix = '', duration = 2000 }: AnimatedNumberProps) => {
   const [count, setCount] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
 
   useEffect(() => {
     if (!hasStarted) {
       setHasStarted(true);
-      let startTime = null;
-      const animate = (currentTime) => {
+      let startTime: number | null = null;
+      const animate = (currentTime: number) => {
         if (startTime === null) startTime = currentTime;
         const progress = Math.min((currentTime - startTime) / duration, 1);
         const easeOutCubic = 1 - Math.pow(1 - progress, 3);
@@ -66,7 +87,11 @@ const AnimatedNumber = ({ value, suffix = '', duration = 2000 }) => {
 };
 
 // Vibe distribution chart component
-const VibeChart = ({ distribution }) => {
+type VibeChartProps = {
+  distribution: Record<string, number>;
+};
+
+const VibeChart = ({ distribution }: VibeChartProps) => {
   const [animated, setAnimated] = useState(false);
   const total = Object.values(distribution).reduce((a, b) => a + b, 0);
   
@@ -86,6 +111,7 @@ const VibeChart = ({ distribution }) => {
     <div className="space-y-4">
       {Object.entries(distribution).map(([vibe, count], index) => {
         const percentage = (count / total) * 100;
+        const colorKey = (vibe in vibeColors ? vibe : 'party') as keyof typeof vibeColors;
         return (
           <div key={vibe} className="space-y-2">
             <div className="flex justify-between items-center text-white">
@@ -94,7 +120,7 @@ const VibeChart = ({ distribution }) => {
             </div>
             <div className="h-3 bg-white/20 rounded-full overflow-hidden">
               <div 
-                className={`h-full bg-gradient-to-r ${vibeColors[vibe]} transition-all duration-1000 ease-out`}
+                className={`h-full bg-gradient-to-r ${vibeColors[colorKey]} transition-all duration-1000 ease-out`}
                 style={{ 
                   width: animated ? `${percentage}%` : '0%',
                   transitionDelay: `${index * 200}ms`
@@ -109,7 +135,21 @@ const VibeChart = ({ distribution }) => {
 };
 
 // Track component with enhanced styling
-const TrackItem = ({ track, index, showRank = true }) => {
+type WrappedTrack = {
+  name: string;
+  artist: string;
+  album: string;
+  imageUrl: string;
+  playCount: number;
+};
+
+type TrackItemProps = {
+  track: WrappedTrack;
+  index: number;
+  showRank?: boolean;
+};
+
+const TrackItem = ({ track, index, showRank = true }: TrackItemProps) => {
   const [isVisible, setIsVisible] = useState(false);
   
   useEffect(() => {
@@ -131,11 +171,11 @@ const TrackItem = ({ track, index, showRank = true }) => {
       
       <div className="relative">
         <img 
-          src={track.imageUrl} 
-          alt={track.name} 
+          src={track.imageUrl}
+          alt={track.name}
           className="w-16 h-16 rounded-xl shadow-lg"
-          onError={(e) => {
-            e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%23333"/><text x="50%" y="50%" font-family="Arial" font-size="12" fill="white" text-anchor="middle" dy=".3em">🎵</text></svg>';
+          onError={(event) => {
+            (event.currentTarget as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="%23333"/><text x="50%" y="50%" font-family="Arial" font-size="12" fill="white" text-anchor="middle" dy=".3em">🎵</text></svg>';
           }}
         />
         <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-black/50 to-transparent" />
@@ -465,7 +505,7 @@ export default function WrappedPage() {
     }, 300);
   };
 
-  const handleCardSelect = (index) => {
+  const handleCardSelect = (index: number) => {
     setAutoAdvance(false);
     setCurrentCardIndex(index);
   };

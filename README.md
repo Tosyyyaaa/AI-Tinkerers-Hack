@@ -1,319 +1,125 @@
-# AI Tinkerers Hack - Music & Vibe Analysis Projects
+# AI Tinkerers Hack — Music & Vibe Platform
 
-This repository contains two innovative AI-powered music projects developed for hackathons:
+This repository now centres on a **music-first AgentOS backend** powered by the
+Agno framework and ElevenLabs' music generation API, together with the
+**Next.js DJBuddy frontend** that collects webcam/audio statistics to request
+personalised soundtracks.
 
-## 🌤️ Weather MCP Agent
+> ⚠️ The older weather MCP agent has been retired. All Python utilities that
+> referenced `mcp_weather_server.py` now point to the new ElevenLabs tooling or
+> display helpful deprecation messages.
 
-A minimal Agno agent with MCP (Model Context Protocol) weather tool for environment-aware music recommendations.
+## 🎵 ElevenLabs Music MCP Agent (Backend)
 
-### Features
-
-- **MCP Weather Server**: Stateless weather tool that returns music-friendly weather buckets
-- **Agno Agent Integration**: Uses MCPTools to connect with the weather server
-- **FastAPI Endpoint**: Simple REST API for weather bucket queries
-- **Environment-Aware**: Maps weather conditions to music categories (sunny/cloudy/rainy/windy/night)
+- **Entry point**: `elevenlabs_agentos.py`
+- **MCP server**: `mcp_elevenlabs_server.py` exposes the `generate_music` tool
+- **Model**: DeepSeek v3.1 via OpenRouter (Agno handles the LLM flow)
+- **Music**: ElevenLabs Music API (mock mode when `ELEVENLABS_API_KEY` absent)
+- **Integration tests**:
+  - `test_integration.py` — direct handler smoke test
+  - `test_mcp_server.py` — stdio transport test (matches AgentOS runtime)
+  - `test_final_integration.py` — multi-style end-to-end exercise
 
 ### Architecture
 
 ```
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   FastAPI App   │───▶│   Agno Agent     │───▶│  MCP Server     │
-│                 │    │ (DeepSeek v3.1)  │    │  (Weather API)  │
-│ /weather?city=  │    │ via OpenRouter   │    │                 │
-│     London      │    │ MCPTools Bridge  │    │ get_weather()   │
-└─────────────────┘    └──────────────────┘    └─────────────────┘
-                                                         │
-                                                         ▼
-                                                ┌─────────────────┐
-                                                │ OpenWeather API │
-                                                │ (Free Tier)     │
-                                                └─────────────────┘
+┌──────────────────┐     ┌─────────────────┐     ┌────────────────────────┐
+│ Next.js API      │ ──▶ │ AgentOS (Agno) │ ──▶ │ ElevenLabs MCP Server │
+│ /api/generate-…  │     │ elevenlabs_…   │     │ generate_music tool    │
+└──────────────────┘     └─────────────────┘     └──────────┬──────────────┘
+                                                             ▼
+                                                 ElevenLabs Music API
+                                                 (mocked when no key)
 ```
 
-### Quick Start (Weather MCP Agent)
+- The frontend sends sensor stats to `/api/generate-vibe-music`
+- The API proxies the payload to `AgentOS /api/vibe/generate-music`
+- AgentOS instructs the MCP tool to create a short track and returns metadata
 
-#### 1. Install Dependencies
+### Environment
 
-**Option A: Quick Install**
 ```bash
-chmod +x install.sh
-./install.sh
-```
-
-**Option B: Manual Install**
-```bash
+# Python environment
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
+
+# Required variables
+export OPENROUTER_API_KEY=sk-...
+export ELEVENLABS_API_KEY=sk-...  # optional: enables real audio
+
+# Launch AgentOS (served at http://localhost:7777)
+python elevenlabs_agentos.py
 ```
 
-#### 2. Setup Environment Variables
+Mock responses are produced automatically when `ELEVENLABS_API_KEY` is missing,
+so development can continue without the external service.
 
-```bash
-cp .env.example .env
-# Edit .env with your API keys
-```
+## 🎛️ DJBuddy Frontend (Next.js 14)
 
-Get your API keys:
-- **OpenWeather API**: [openweathermap.org/api](https://openweathermap.org/api) (free tier available)
-- **OpenRouter API**: [openrouter.ai/settings/keys](https://openrouter.ai/settings/keys) (for DeepSeek access)
-
-#### 3. Test the Installation
-
-```bash
-# Test the MCP server directly
-python test_weather.py
-
-# If tests pass, start the full application
-python agno_weather_agent.py
-```
-
-The API will be available at `http://localhost:8000`
-
-### API Usage
-
-#### Get Weather Bucket
-
-```bash
-curl "http://localhost:8000/weather?city=London"
-```
-
-**Response:**
-```json
-{
-  "city": "London",
-  "bucket": "cloudy",
-  "message": "The weather bucket for London is 'cloudy' - perfect for some chill ambient music!"
-}
-```
-
-#### Available Endpoints
-
-- `GET /` - API information
-- `GET /health` - Health check
-- `GET /weather?city={city}` - Get weather bucket for city
-
-### Weather Buckets
-
-The agent maps weather conditions to music-friendly categories:
-
-| Bucket | Weather Conditions | Music Suggestion |
-|--------|-------------------|------------------|
-| `sunny` | Clear skies | Upbeat, energetic music |
-| `cloudy` | Overcast, fog, mist | Chill, ambient music |
-| `rainy` | Rain, drizzle, thunderstorms | Cozy, introspective music |
-| `windy` | Strong winds, storms | Dynamic, powerful music |
-| `night` | Nighttime (regardless of conditions) | Calm, atmospheric music |
-
----
-
-## 🎵
-# DJBuddy - Webcam Vibe Check
-
-AI-powered webcam vibe analysis with music adaptation using computer vision, Anthropic Claude, ElevenLabs TTS, and Spotify Web Playback SDK.
-
-## Features
-
-- **Real-time Computer Vision**: Webcam analysis for brightness, motion, face detection, and smile recognition
-- **Advanced Audio Analysis**: soundDevice-inspired audio processing for volume, energy, noise detection, speech recognition, and spectral analysis
-- **Live Weather Integration**: Real-time weather data with geolocation support and manual city selection
-- **AI Vibe Interpretation**: Uses Anthropic Claude to interpret combined audio-visual stats and suggest music adaptations
-- **Text-to-Speech Coaching**: ElevenLabs TTS provides spoken tips based on detected vibes
-- **Music Integration**: Supports both Spotify Web Playback SDK and local audio playback
-- **Privacy-First**: All video and audio analysis happens locally - no media leaves your device
-- **Modern UI**: Beautiful, responsive 4-column interface built with Next.js 14 and Tailwind CSS
-
-## Vibe Classifications
-
-Enhanced with audio-visual analysis:
-
-- **Party**: (High motion + multiple faces) OR (high audio energy + volume) → Upbeat music (124-136 BPM)
-- **Chill**: (Low brightness + minimal motion) OR (quiet audio + low noise) → Relaxed music (80-105 BPM)  
-- **Focused**: (Smiles + moderate motion) OR (speech detection + moderate audio energy) → Concentration music (95-120 BPM)
-- **Bored**: Low engagement across both visual and audio → Energy boost music + skip action
-
-## Technology Stack
-
-- **Framework**: Next.js 14 with App Router, React, TypeScript
-- **Styling**: Tailwind CSS with custom animations
-- **Computer Vision**: MediaPipe Face Detection, TensorFlow.js (fallback)
-- **Audio Analysis**: Web Audio API with FFT analysis, pitch detection, spectral analysis (inspired by soundDevice)
-- **AI Integration**: Anthropic Claude API for audio-visual vibe interpretation
-- **Audio**: 
-  - ElevenLabs TTS API for speech synthesis
-  - Spotify Web Playback SDK for premium users
-  - Web Audio API for local playback with dynamics compression
-- **Privacy**: Client-side only audio/video analysis, no server-side ML
-
-## Setup Instructions
-
-### 1. Install Dependencies
+- **Location**: `app/` + `lib/`
+- **Sensors**: webcam + audio analytics via `useVibeSensors`
+- **Weather**: handled client-side with WeatherAPI.com via `app/api/weather`
+- **Music bridge**: `app/api/generate-vibe-music/route.ts`
 
 ```bash
 npm install
-```
-
-### 2. Environment Variables
-
-Create a `.env.local` file with your API keys:
-
-```env
-# Required: Anthropic API for vibe interpretation
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
-
-# Required: ElevenLabs API for text-to-speech
-ELEVEN_API_KEY=your_elevenlabs_api_key_here
-
-# OpenWeatherMap API for weather data
-OPENWEATHER_API_KEY=your_openweather_api_key_here
-
-# Optional: Spotify Web API credentials (for premium features)
-SPOTIFY_CLIENT_ID=your_spotify_client_id_here
-SPOTIFY_CLIENT_SECRET=your_spotify_client_secret_here
-```
-
-### 3. Get API Keys
-
-#### Anthropic API Key
-1. Visit [console.anthropic.com](https://console.anthropic.com)
-2. Create an account and add credits
-3. Generate an API key in the API Keys section
-
-#### ElevenLabs API Key
-1. Visit [elevenlabs.io](https://elevenlabs.io)
-2. Sign up for an account (free tier available)
-3. Go to Profile → API Key to generate your key
-
-#### OpenWeatherMap API Key
-1. Visit [openweathermap.org](https://openweathermap.org/api)
-2. Sign up for a free account (1000 calls/day free tier)
-3. Generate an API key in your account dashboard
-
-#### Spotify Credentials (Optional)
-1. Visit [developer.spotify.com](https://developer.spotify.com)
-2. Create an app in your dashboard
-3. Note your Client ID and Client Secret
-4. Add `http://localhost:3000` to redirect URIs
-
-### 4. Run Development Server
-
-```bash
 npm run dev
+# http://localhost:3000/vibe
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) to see the application.
+When the frontend has fresh sensor statistics it POSTs to
+`/api/generate-vibe-music`. The API packages the payload (including optional
+prompt metadata) and forwards it to the AgentOS backend.
 
-## Usage
+### Key Frontend Modules
 
-1. **Grant Camera Permission**: Click "Start Vibe Check" and allow webcam access
-2. **Live Analysis**: Watch real-time metrics for brightness, motion, faces, and smiles
-3. **Vibe Detection**: AI interprets your room's vibe every 1-2 seconds
-4. **Music Adaptation**: Volume and track selection adapt based on detected vibe
-5. **Voice Coaching**: Hear AI-generated tips through ElevenLabs TTS
+- `lib/vibe/interpretVibe.ts` — blends audio & visual metrics into vibe labels
+- `lib/mcp/vibeTools.ts` — MCP-style wrappers for future desktop integrations
+- `lib/audio/*` — Spotify/local playback helpers
+- `app/vibe/page.tsx` — main UI orchestrating sensors, vibe loop, and music
 
-## Testing Features
+## ✅ Testing & Verification
 
-- **Test Spotify**: Enter an access token to test Spotify Web Playback SDK integration
-- **Test TTS**: Verify ElevenLabs text-to-speech functionality
-- **Privacy Mode**: All video analysis happens locally on your device
+| Script | Purpose |
+| --- | --- |
+| `test_integration.py` | Direct async calls to MCP handlers (no subprocess) |
+| `test_mcp_server.py` | Launch MCP server via stdio and request one track |
+| `test_final_integration.py` | Multi-style generation with latency reporting |
+| `verification_summary.py` | High-level confirmation of tooling & env |
+| `test_as_agno_agent.py` | Simulated AgentOS-to-MCP conversation |
 
-## Architecture
+Legacy scripts that referenced weather now raise informative errors so that old
+instructions fail fast with guidance.
 
-### Client-Side Components
-- `useVibeSensors`: Webcam capture and computer vision analysis
-- `SpotifyClient`: Web Playback SDK integration with volume control
-- `LocalAudioPlayer`: Web Audio API with gain control and compression
-- `interpretVibe`: Client wrapper for AI vibe interpretation
+## 📂 Repository Guide
 
-### Server-Side APIs
-- `/api/interpret-vibe`: Anthropic Claude integration for vibe analysis
-- `/api/tts`: ElevenLabs text-to-speech conversion
+```
+mcps for hack vibe/
+├── elevenlabs_agentos.py        # AgentOS backend entry point
+├── mcp_elevenlabs_server.py     # MCP server exposing generate_music
+├── test_integration.py          # Handler smoke test
+├── test_mcp_server.py           # stdio transport test
+├── app/                         # Next.js frontend (App Router)
+│   ├── api/
+│   │   ├── generate-vibe-music/ # Backend proxy to AgentOS
+│   │   └── weather/             # WeatherAPI.com bridge
+│   └── vibe/page.tsx            # DJBuddy interface
+└── lib/                         # Shared frontend libraries
+```
 
-### Audio-Visual Analysis Pipeline
+## 🕰️ Legacy Weather Stack
 
-**Computer Vision:**
-1. **Frame Capture**: 640x480 webcam feed at ~1 FPS analysis rate
-2. **Brightness**: RGB → Luma conversion with rolling average smoothing
-3. **Motion Detection**: Frame difference with exponential moving average
-4. **Colour Temperature**: R/B ratio estimation (2500K-6500K range)
-5. **Face Detection**: MediaPipe Face Detection (with basic fallback)
+The original weather MCP tooling has been fully retired. Files such as
+`weather_agentos.py`, `test_weather.py`, etc., now raise exceptions explaining
+that the feature set was removed. The Next.js weather API continues to offer
+weather data to the frontend without involving MCP.
 
-**Audio Analysis (soundDevice-inspired):**
-1. **Audio Capture**: Microphone input with Web Audio API
-2. **Volume/Energy**: RMS calculation for overall and spectral energy
-3. **Pitch Detection**: Autocorrelation-based fundamental frequency estimation
-4. **Spectral Analysis**: FFT-based spectral centroid and rolloff calculation
-5. **Speech Detection**: Heuristic-based speech probability estimation
-6. **Noise Floor**: Adaptive background noise level estimation
+## 🙌 Contributing
 
-### Privacy & Safety
-- **No Upload**: Video frames and audio never leave your device
-- **Local Processing**: All computer vision and audio analysis runs in your browser
-- **Microphone Privacy**: Explicit permission required, audio analysis is local-only
-- **Input Validation**: All API inputs are sanitised and validated
-- **Rate Limiting**: Built-in debouncing for API calls and music changes
+1. Run the modern tests (`python test_integration.py`, etc.) before changes
+2. Keep documentation aligned with the music-first architecture
+3. When adding new tests, prefer the existing helper scripts as templates
+4. Ensure frontend/backend contracts stay in sync (see prompt metadata payload)
 
-## Browser Compatibility
-
-- **Chrome/Edge**: Full support including MediaPipe
-- **Firefox**: Supported with basic face detection fallback
-- **Safari**: Supported with Web Audio API compatibility layer
-- **Mobile**: Responsive design, works on tablets and phones
-
-## Troubleshooting
-
-### Camera Issues
-- Ensure browser has camera permission
-- Try refreshing the page if video doesn't appear
-- Check if other applications are using the camera
-
-### API Issues
-- Verify API keys are correctly set in `.env.local`
-- Check browser console for detailed error messages
-- Ensure you have credits/quota remaining for paid APIs
-
-### Audio Issues
-- Click anywhere on the page to enable Web Audio (browser requirement)
-- Check browser audio permissions
-- Ensure speakers/headphones are connected
-
-## Development
-
-### Code Quality
-- TypeScript strict mode enabled
-- ESLint configuration included
-- Zero lint errors required
-- Comprehensive error handling
-
-### Performance
-- Optimised computer vision (samples every 4th-16th pixel)
-- Debounced API calls (volume changes, track skips)
-- Efficient React hooks with proper cleanup
-- Web Audio API for low-latency audio processing
-
-### Extensibility
-- MCP (Model Context Protocol) tool interfaces defined
-- Modular architecture for easy feature additions
-- Configurable analysis parameters
-- Plugin-ready audio system
-
-## License
-
-This project is for demonstration purposes. Please ensure you comply with all API terms of service for Anthropic, ElevenLabs, and Spotify.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with proper TypeScript types
-4. Ensure zero lint errors
-5. Test thoroughly across browsers
-6. Submit a pull request
-
-## Acknowledgements
-
-- **MediaPipe** for face detection models
-- **Anthropic** for Claude AI integration  
-- **ElevenLabs** for high-quality text-to-speech
-- **Spotify** for Web Playback SDK
-- **Next.js & Vercel** for the amazing development framework
+Happy hacking! 🎶

@@ -4,7 +4,8 @@ declare global {
   namespace NodeJS {
     interface ProcessEnv {
       ANTHROPIC_API_KEY: string;
-      ELEVEN_API_KEY: string;
+      ELEVEN_API_KEY?: string;
+      ELEVENLABS_API_KEY?: string;
       OPENWEATHER_API_KEY?: string;
       SPOTIFY_CLIENT_ID?: string;
       SPOTIFY_CLIENT_SECRET?: string;

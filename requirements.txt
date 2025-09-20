@@ -19,3 +19,6 @@ openai>=1.0.0
 
 # Environment variables (optional but helpful)
 python-dotenv>=1.0.0
+
+# ElevenLabs for music generation
+elevenlabs>=1.0.0

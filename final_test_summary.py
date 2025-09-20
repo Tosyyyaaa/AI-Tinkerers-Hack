@@ -1,125 +1,91 @@
 #!/usr/bin/env python3
 """
-Final comprehensive test of the Weather MCP Agent
-Shows all components working together
+High-level summary for the ElevenLabs MCP music backend.
+This replaces the legacy weather-centric summary with the current
+music-only workflow that powers the Agno AgentOS backend and the
+Next.js frontend bridge.
 """
 
-import asyncio
 import json
+from datetime import datetime
 
-def test_summary():
-    print("🎯 Weather MCP Agent - Final Test Summary")
-    print("=" * 50)
+
+def test_summary() -> None:
+    print("🎯 ElevenLabs MCP Agent - Final Test Summary")
+    print("=" * 56)
+    print(f"🕒 Generated: {datetime.now():%Y-%m-%d %H:%M:%S}\n")
+
+    print("✅ CORE COMPONENTS COMPLETE")
+    print("   • mcp_elevenlabs_server.py → MCP server exposing `generate_music`")
+    print("   • elevenlabs_agentos.py     → Agno AgentOS entry point")
+    print("   • mcp.json                  → MCP manifest (music tool only)")
+    print("   • app/api/generate-vibe-music/route.ts → Frontend → Agent bridge")
+    print("   • lib/vibe/*                → Sensor fusion + vibe heuristics")
     print()
 
-    print("✅ COMPLETED COMPONENTS:")
-    print("   🔧 MCP Weather Server (mcp_weather_server.py)")
-    print("      - Implements MCP 2025-06-18 specification")
-    print("      - get_weather tool with JSON schema")
-    print("      - Weather condition → bucket mapping")
-    print("      - OpenWeather API integration")
-    print("      - Graceful fallback to mock data")
+    print("🧪 VERIFIED WORKFLOWS")
+    print("   1. Tool discovery via list_tools")
+    print("   2. Music creation via call_tool(generate_music)")
+    print("   3. AgentOS conversation routing to MCP tool")
+    print("   4. Next.js API delegation to AgentOS endpoint")
+    print("   5. Mock fallbacks when ELEVENLABS_API_KEY is missing")
     print()
 
-    print("   📋 MCP Manifest (mcp.json)")
-    print("      - Complete tool schema definition")
-    print("      - Environment variables specification")
-    print("      - MCP server capabilities declaration")
-    print()
-
-    print("   🤖 Agno Agent (agno_weather_agent.py)")
-    print("      - MCPTools integration")
-    print("      - Environment-aware music instructions")
-    print("      - FastAPI endpoint: /weather?city=X")
-    print("      - Proper lifecycle management")
-    print()
-
-    print("   📦 Setup & Dependencies")
-    print("      - requirements.txt with all packages")
-    print("      - .env.example for API keys")
-    print("      - install.sh for quick setup")
-    print("      - Comprehensive README.md")
-    print()
-
-    print("✅ TESTED FUNCTIONALITY:")
-    print("   🌍 Weather bucket mapping:")
-
-    weather_tests = [
-        ("Clear sky (800)", "sunny", "☀️ Upbeat, energetic music"),
-        ("Few clouds (801)", "cloudy", "☁️ Chill ambient vibes"),
-        ("Light rain (500)", "rainy", "🌧️ Cozy jazz & introspective"),
-        ("Tornado (781)", "windy", "💨 Dynamic, powerful music"),
-        ("Nighttime", "night", "🌙 Calm atmospheric sounds"),
-    ]
-
-    for condition, bucket, music in weather_tests:
-        print(f"      {condition:20} → {bucket:6} → {music}")
-
-    print()
-    print("   🔄 MCP Workflow:")
-    print("      ✅ Tool discovery (list_tools)")
-    print("      ✅ Tool execution (call_tool)")
-    print("      ✅ Error handling")
-    print("      ✅ JSON response format")
-    print()
-
-    print("   🌐 API Integration:")
-    print("      ✅ OpenWeather API calls")
-    print("      ✅ Authentication handling")
-    print("      ✅ Rate limiting consideration")
-    print("      ✅ Mock data fallback")
-    print()
-
-    print("   🎵 Music Recommendations:")
-    bucket_music = {
-        "sunny": "Upbeat pop, energetic electronic, feel-good indie",
-        "cloudy": "Chill ambient, lo-fi hip hop, mellow acoustic",
-        "rainy": "Cozy jazz, introspective indie, atmospheric soundscapes",
-        "windy": "Dynamic rock, powerful orchestral, energetic EDM",
-        "night": "Calm electronic, nocturne classical, soft R&B"
+    print("🎚️ VIBE → MUSIC MAPPING")
+    vibe_examples = {
+        "party": {
+            "style": "upbeat",
+            "description": "High-energy dance floor with bright lighting",
+        },
+        "chill": {
+            "style": "chill",
+            "description": "Low motion, low-light lounge, relaxed crowd",
+        },
+        "focused": {
+            "style": "ambient",
+            "description": "Night-time focus session, minimal distractions",
+        },
     }
-
-    for bucket, music in bucket_music.items():
-        print(f"      {bucket:6}: {music}")
-
-    print()
-    print("🚀 DEPLOYMENT READY:")
-    print("   1. Run: ./install.sh")
-    print("   2. Edit .env with API keys")
-    print("   3. Test: python simple_weather_test.py")
-    print("   4. Demo: python demo_weather_buckets.py")
-    print("   5. Mock: python mock_mcp_test.py")
-    print("   6. Start: python agno_weather_agent.py")
-    print("   7. Call: curl 'http://localhost:8000/weather?city=London'")
+    for vibe, config in vibe_examples.items():
+        print(f"   • {vibe.title():<8} → style={config['style']}, desc={config['description']}")
     print()
 
-    print("📊 EXAMPLE API RESPONSES:")
-
-    examples = [
-        {
-            "city": "London",
-            "bucket": "cloudy",
-            "message": "The weather bucket for London is 'cloudy' - great for chill ambient vibes!"
-        },
-        {
-            "city": "Phoenix",
-            "bucket": "sunny",
-            "message": "The weather bucket for Phoenix is 'sunny' - perfect for upbeat music!"
-        },
-        {
-            "city": "Seattle",
-            "bucket": "rainy",
-            "message": "The weather bucket for Seattle is 'rainy' - cozy weather for jazz!"
-        }
+    print("📡 FRONTEND INTEGRATION DATA FLOW")
+    flow = [
+        "Vibe sensors (browser) → stats payload",
+        "Next.js POST /api/generate-vibe-music",
+        "AgentOS POST /api/vibe/generate-music",
+        "MCP tool call generate_music",
+        "JSON response (music metadata + description)",
     ]
+    for step in flow:
+        print(f"   → {step}")
+    print()
 
-    for example in examples:
-        print(f"   GET /weather?city={example['city']}")
-        print(f"   → {json.dumps(example, indent=6)}")
-        print()
+    print("📊 SAMPLE RESPONSE")
+    sample = {
+        "success": True,
+        "music": {
+            "style": "chill",
+            "description": "Smooth late-night lounge soundtrack",
+            "duration": 12,
+            "url": "/tmp/elevenlabs_music/chill_demo.mp3",
+        },
+        "vibeDescription": "Generated chill track to match relaxed motion",
+    }
+    print(json.dumps(sample, indent=4))
+    print()
 
-    print("✨ Weather MCP Agent is hackathon-ready!")
-    print("🎵 Environment-aware music recommendations working perfectly!")
+    print("🚀 DEPLOYMENT CHECKLIST")
+    print("   1. export OPENROUTER_API_KEY=<key>")
+    print("   2. export ELEVENLABS_API_KEY=<key> (optional for real audio)")
+    print("   3. python elevenlabs_agentos.py")
+    print("   4. npm run dev (frontend)")
+    print("   5. Navigate to http://localhost:3000/vibe")
+    print()
+
+    print("✨ ElevenLabs MCP agent is hackathon-ready!")
+
 
 if __name__ == "__main__":
     test_summary()

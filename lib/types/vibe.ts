@@ -1,9 +1,17 @@
 export type RoomStats = {
-  faces: number;
-  smiles: number;
+  // Visual metrics
   avgBrightness: number;   // 0..1
   colorTempK: number;      // estimated white balance
-  motionLevel: number;     // 0..1, from frame diffs / optical flow-lite
+  motionLevel: number;     // 0..1, overall motion intensity
+  faces?: number;          // detected faces count (optional sensor metric)
+  smiles?: number;         // detected smiles count (optional sensor metric)
+  // New style detection metrics
+  motionZones: number[];   // 0..1 for each zone (left, center, right, top, bottom)
+  crowdDensity: number;    // 0..1, estimated number of people based on motion patterns
+  styleIndicator: "formal" | "casual" | "party" | "professional" | "mixed"; // detected clothing/environment style
+  dominantColors: string[]; // hex colors of dominant colors in scene
+  colorVariance: number;   // 0..1, how varied colors are (casual=high, formal=low)
+  lightingPattern: "steady" | "dynamic" | "strobe" | "dim"; // lighting environment type
   // Audio metrics (soundDevice-style)
   audioVolume: number;     // 0..1, overall audio level
   audioEnergy: number;     // 0..1, audio energy/RMS
@@ -52,4 +60,38 @@ export type TTSRequest = {
 export type TTSResponse = {
   audio: ArrayBuffer;
   contentType: string;
+};
+
+// Agno agent communication types
+export type AgnoVibeRequest = {
+  stats: RoomStats;
+  context?: {
+    timestamp: number;
+    sessionId?: string;
+    previousVibe?: string;
+  };
+  promptMetadata?: {
+    style?: string;
+    description?: string;
+  };
+};
+
+export type AgnoMusicResponse = {
+  success: boolean;
+  music?: {
+    url: string;
+    filename: string;
+    style: string;
+    description: string;
+    duration: number;
+    localPath?: string;
+    mimeType?: string;
+    sizeBytes?: number;
+    audioBase64?: string;
+    dataUrl?: string;
+    source?: 'elevenlabs';
+    generatedAt?: number;
+  };
+  error?: string;
+  vibeDescription?: string;
 };

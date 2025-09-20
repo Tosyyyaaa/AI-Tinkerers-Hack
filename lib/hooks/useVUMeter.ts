@@ -18,7 +18,7 @@ export const useVUMeter = (analyser: AnalyserNode | null): VUMeterData => {
     rightPeak: 0
   });
 
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | null>(null);
   const peakHoldRef = useRef({ left: 0, right: 0, leftTime: 0, rightTime: 0 });
 
   const updateMeters = useCallback(() => {
@@ -83,8 +83,9 @@ export const useVUMeter = (analyser: AnalyserNode | null): VUMeterData => {
     animationFrameRef.current = requestAnimationFrame(animate);
 
     return () => {
-      if (animationFrameRef.current) {
+      if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
   }, [analyser, updateMeters]);
@@ -92,8 +93,9 @@ export const useVUMeter = (analyser: AnalyserNode | null): VUMeterData => {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (animationFrameRef.current) {
+      if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
   }, []);

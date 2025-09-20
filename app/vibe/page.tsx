@@ -1,13 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import dynamic from 'next/dynamic';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef, useId } from 'react';
 import { FlickeringGrid } from '@/components/ui/flickering-grid';
 import { useVibeSensors } from '@/lib/vibe/useVibeSensors';
 import { performVibeCheck } from '@/lib/vibe/interpretVibe';
-import { getSpotifyClient } from '@/lib/spotify/spotifyClient';
-import { getLocalPlayer, DEFAULT_PLAYLIST } from '@/lib/audio/localPlayer';
+import { getLocalPlayer, DEFAULT_PLAYLIST, type AudioTrack, type LocalPlayerState } from '@/lib/audio/localPlayer';
 import { getAdaptivePlayer } from '@/lib/audio/adaptivePlayer';
 import { useWeather } from '@/lib/weather/useWeather';
 import { RoomStats, VibeDecision, VibeCheckState } from '@/lib/types/vibe';
@@ -25,6 +22,143 @@ function ClientOnly({ children }: { children: React.ReactNode }) {
   }
   
   return <>{children}</>;
+}
+
+type GeneratedTrack = AudioTrack & {
+  style?: string;
+  description?: string;
+  duration?: number;
+  createdAt: number;
+  source: 'elevenlabs';
+};
+
+function formatSeconds(totalSeconds: number): string {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+    return '0:00';
+  }
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.max(0, Math.floor(totalSeconds % 60));
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function GeneratedTrackWidget({
+  track,
+  playbackState,
+  isPlaying,
+  onPlay,
+  onPause,
+  onReset,
+  error,
+}: {
+  track: GeneratedTrack | null;
+  playbackState: LocalPlayerState;
+  isPlaying: boolean;
+  onPlay: () => Promise<void>;
+  onPause: () => Promise<void>;
+  onReset: () => Promise<void>;
+  error: string | null;
+}) {
+  const progress = track && playbackState.duration
+    ? Math.min(100, (playbackState.currentTime / playbackState.duration) * 100)
+    : 0;
+
+  return (
+    <div className="stats-card">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          🎧 AI Track Player
+        </h2>
+        {track && (
+          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-600 dark:bg-blue-900/60 dark:text-blue-200 rounded-full">
+            ElevenLabs
+          </span>
+        )}
+      </div>
+
+      {track ? (
+        <div className="space-y-4">
+          <div>
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              {track.name}
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400 flex flex-wrap items-center gap-2 mt-1">
+              {track.style && (
+                <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full capitalize">
+                  {track.style}
+                </span>
+              )}
+              <span>
+                Generated at {new Date(track.createdAt).toLocaleTimeString('en-GB', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}
+              </span>
+            </div>
+            {track.description && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
+                {track.description}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-purple-500 to-blue-500 transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <span>{formatSeconds(playbackState.currentTime)}</span>
+              <span>{formatSeconds(playbackState.duration)}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => { void onPlay(); }}
+              disabled={isPlaying || !track.url}
+              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md text-sm transition-colors"
+            >
+              ▶️ Play
+            </button>
+            <button
+              onClick={() => { void onPause(); }}
+              disabled={!isPlaying}
+              className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 rounded-md text-sm transition-colors"
+            >
+              ⏸️ Pause
+            </button>
+            <button
+              onClick={() => { void onReset(); }}
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-md text-sm transition-colors"
+            >
+              🔄 Reset
+            </button>
+            <a
+              href={track.url}
+              download={`${track.id || 'ai-track'}.mp3`}
+              className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/50 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-200 rounded-md text-sm transition-colors"
+            >
+              ⬇️ Download
+            </a>
+          </div>
+
+          {error && (
+            <div className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
+              ⚠️ {error}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-sm text-gray-600 dark:text-gray-300">
+          Generate a vibe check to hear a freshly composed ElevenLabs track.
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Component for displaying live meters
@@ -68,21 +202,38 @@ function VibeMeter({
 
 // Privacy tooltip component
 function PrivacyTooltip() {
-    return (
-    <div className="group relative">
-      <svg 
-        className="w-4 h-4 text-gray-500 hover:text-gray-700 cursor-help" 
-        fill="currentColor" 
-        viewBox="0 0 20 20"
+  const tooltipId = useId();
+
+  return (
+    <span className="relative inline-flex group">
+      <button
+        type="button"
+        aria-describedby={tooltipId}
+        aria-label="Learn about privacy"
+        className="w-4 h-4 text-gray-500 hover:text-gray-700 cursor-help flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
       >
-        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-      </svg>
-      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+        <svg
+          className="w-full h-full"
+          fill="currentColor"
+          viewBox="0 0 20 20"
+        >
+          <path
+            fillRule="evenodd"
+            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
+            clipRule="evenodd"
+          />
+        </svg>
+      </button>
+      <span
+        id={tooltipId}
+        role="tooltip"
+        className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-900 rounded-lg opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10"
+      >
         All processing is done locally in your browser
-        </div>
-      </div>
-    );
-  }
+      </span>
+    </span>
+  );
+}
 
 // Component for displaying current vibe
 function VibeDisplay({ decision }: { decision: VibeDecision }) {
@@ -188,10 +339,6 @@ function WeatherWidget() {
 
 // Main vibe check page component
 function VibeCheckPageInner() {
-  // URL parameters
-  const searchParams = useSearchParams();
-  const mode = searchParams.get('mode');
-
   // Core state
   const [isActive, setIsActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -206,11 +353,22 @@ function VibeCheckPageInner() {
     error: null
   });
 
+  const [latestGeneratedTrack, setLatestGeneratedTrack] = useState<GeneratedTrack | null>(null);
+  const [playerError, setPlayerError] = useState<string | null>(null);
+  const [audioPlaying, setAudioPlaying] = useState(false);
+  const [localPlaybackState, setLocalPlaybackState] = useState<LocalPlayerState>(() => getLocalPlayer().getCurrentState());
+
   // Event URL state
   const [eventUrl, setEventUrl] = useState('');
   const [isExtractingEvent, setIsExtractingEvent] = useState(false);
   const [eventVibeData, setEventVibeData] = useState<any>(null);
   const [urlVibeError, setUrlVibeError] = useState<string | null>(null);
+
+  const localPlayer = useRef(getLocalPlayer());
+  const adaptivePlayer = useRef(getAdaptivePlayer());
+  const generatedTrackUrls = useRef<string[]>([]);
+  const latestStatsRef = useRef<RoomStats | null>(null);
+  const lastVibeCheckRef = useRef<number>(0);
 
 
   // Weather data
@@ -236,25 +394,8 @@ function VibeCheckPageInner() {
   // Update stats when sensors change
   useEffect(() => {
     if (sensorStats) {
-      // Map sensor stats to the format expected by the vibe page
-      const mappedStats = {
-        faces: sensorStats.faces,
-        smiles: sensorStats.smiles,
-        brightness: sensorStats.avgBrightness,
-        motion: sensorStats.motionLevel,
-        audioLevel: sensorStats.audioVolume,
-        // Keep original properties for performVibeCheck
-        avgBrightness: sensorStats.avgBrightness,
-        colorTempK: sensorStats.colorTempK,
-        motionLevel: sensorStats.motionLevel,
-        audioVolume: sensorStats.audioVolume,
-        audioEnergy: sensorStats.audioEnergy,
-        noiseLevel: sensorStats.noiseLevel,
-        speechProbability: sensorStats.speechProbability,
-        pitch: sensorStats.pitch,
-        spectralCentroid: sensorStats.spectralCentroid,
-      };
-      setStats(mappedStats as any);
+      latestStatsRef.current = sensorStats as RoomStats;
+      setStats(sensorStats as RoomStats);
     }
   }, [sensorStats]);
 
@@ -265,34 +406,234 @@ function VibeCheckPageInner() {
     }
   }, [sensorError]);
 
+  useEffect(() => {
+    localPlayer.current.updateCallbacks({
+      onTrackChange: () => {
+        setLocalPlaybackState(localPlayer.current.getCurrentState());
+      },
+      onPlayStateChange: (isPlaying) => {
+        setAudioPlaying(isPlaying);
+      },
+      onError: (error) => {
+        console.warn('Local player error:', error);
+        setPlayerError(error);
+      },
+    });
+
+    adaptivePlayer.current.updateCallbacks({
+      onPlayerChange: (playerType) => {
+        console.log('Player changed to:', playerType);
+      },
+      onPlayStateChange: (isPlaying) => {
+        setAudioPlaying(isPlaying);
+      },
+      onTrackChange: () => {
+        setLocalPlaybackState(localPlayer.current.getCurrentState());
+      },
+      onError: (error) => {
+        console.warn('Adaptive player error:', error);
+        setPlayerError(error);
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLocalPlaybackState(localPlayer.current.getCurrentState());
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const ensureStats = useCallback((override?: RoomStats | null): RoomStats | null => {
+    const active = override ?? stats ?? latestStatsRef.current;
+    if (active) {
+      latestStatsRef.current = active;
+      return active;
+    }
+
+    const fallback: RoomStats = {
+      avgBrightness: 0.5,
+      colorTempK: 4500,
+      motionLevel: 0.2,
+      faces: 0,
+      smiles: 0,
+      motionZones: [0, 0, 0, 0, 0],
+      crowdDensity: 0.1,
+      styleIndicator: 'casual',
+      dominantColors: ['#444444'],
+      colorVariance: 0.1,
+      lightingPattern: 'steady',
+      audioVolume: 0.2,
+      audioEnergy: 0.2,
+      noiseLevel: 0.15,
+      speechProbability: 0.1,
+      pitch: 220,
+      spectralCentroid: 3500,
+    };
+
+    latestStatsRef.current = fallback;
+    return fallback;
+  }, [stats]);
+
   // Vibe check cycle
-  const performVibeCheckCycle = useCallback(async () => {
-    if (!stats || isProcessing) return;
+  const performVibeCheckCycle = useCallback(async (
+    options?: { statsOverride?: RoomStats | null; force?: boolean }
+  ) => {
+    if (isProcessing && !options?.force) {
+      return;
+    }
+
+    const now = Date.now();
+    if (!options?.force && now - lastVibeCheckRef.current < 3000) {
+      return;
+    }
+    lastVibeCheckRef.current = now;
+
+    const activeStats = ensureStats(options?.statsOverride);
+    if (!activeStats) {
+      console.warn('Skipping vibe check: no stats available');
+      return;
+    }
 
     setIsProcessing(true);
     setVibeState(prev => ({ ...prev, isAnalyzing: true, error: null }));
+    setPlayerError(null);
 
     try {
-      console.log('🎯 Performing vibe check with stats:', stats);
-      const result = await performVibeCheck(stats);
-      console.log('✅ Vibe decision:', result.decision);
-      
+      console.log('🎯 Performing vibe check with stats:', activeStats);
+      const vibeResult = await performVibeCheck(activeStats);
+      const decision = vibeResult.decision;
+
+      if (vibeResult.audioBuffer) {
+        try {
+          await adaptivePlayer.current.playTTS(vibeResult.audioBuffer);
+        } catch (ttsError) {
+          console.warn('Adaptive player TTS failed, using local player:', ttsError);
+          await localPlayer.current.playTTS(vibeResult.audioBuffer);
+        }
+      }
+
+      // Call ElevenLabs agent via our API to generate music
+      const agentResponse = await fetch('/api/generate-vibe-music', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          stats: activeStats,
+          context: {
+            timestamp: now,
+            sessionId: 'vibe-check-session',
+          },
+        }),
+      });
+
+      if (!agentResponse.ok) {
+        throw new Error(`API responded with status: ${agentResponse.status}`);
+      }
+
+      const musicResult = await agentResponse.json();
+
+      if (!musicResult.success) {
+        throw new Error(musicResult.error || 'Music generation failed');
+      }
+
       setVibeState({
         isAnalyzing: false,
-        decision: result.decision,
-        error: null
+        decision,
+        error: musicResult.error || null,
       });
+
+      if (musicResult.vibeDescription) {
+        console.log('🗣️ Vibe description:', musicResult.vibeDescription);
+      }
+
+      let generatedTrackUrl: string | null = null;
+
+      if (musicResult.music?.audioBase64 && typeof window !== 'undefined') {
+        try {
+          const binaryString = window.atob(musicResult.music.audioBase64);
+          const byteLength = binaryString.length;
+          const bytes = new Uint8Array(byteLength);
+
+          for (let i = 0; i < byteLength; i += 1) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+
+          const blob = new Blob([bytes], { type: musicResult.music.mimeType || 'audio/mpeg' });
+          const objectUrl = URL.createObjectURL(blob);
+
+          generatedTrackUrls.current.push(objectUrl);
+          if (generatedTrackUrls.current.length > 4) {
+            const oldUrl = generatedTrackUrls.current.shift();
+            if (oldUrl) {
+              URL.revokeObjectURL(oldUrl);
+            }
+          }
+
+          generatedTrackUrl = objectUrl;
+        } catch (prepError) {
+          console.warn('Failed to prepare generated music data for playback:', prepError);
+        }
+      } else if (musicResult.music?.dataUrl) {
+        generatedTrackUrl = musicResult.music.dataUrl;
+      }
+
+      if (generatedTrackUrl) {
+        const trackName = musicResult.music?.displayName
+          ?? (musicResult.music?.style ? `${musicResult.music.style} vibe track` : 'Custom vibe track');
+
+        const generatedTrack: GeneratedTrack = {
+          id: `${musicResult.music?.filename || 'ai-track'}-${now}`,
+          name: trackName,
+          url: generatedTrackUrl,
+          bpm: decision.suggestedBPM,
+          genre: musicResult.music?.style,
+          style: musicResult.music?.style,
+          description: musicResult.music?.description,
+          duration: musicResult.music?.duration,
+          createdAt: musicResult.music?.generatedAt || now,
+          source: 'elevenlabs',
+        };
+
+        setLatestGeneratedTrack(generatedTrack);
+
+        console.log('🎧 Loading AI-generated track into player', {
+          name: generatedTrack.name,
+          mime: musicResult.music?.mimeType,
+          size: musicResult.music?.sizeBytes,
+          source: generatedTrackUrl.startsWith('blob:') ? 'blob' : 'data-url',
+        });
+
+        try {
+          const loaded = await localPlayer.current.loadPlaylist([generatedTrack]);
+          if (!loaded) {
+            console.warn('Generated track queued but local player refused to load');
+          }
+          setLocalPlaybackState(localPlayer.current.getCurrentState());
+        } catch (playError) {
+          console.warn('Failed to stage generated track for playback:', playError);
+        }
+      } else {
+        console.warn('No playable audio data returned from ElevenLabs music response');
+        setPlayerError('Music generated but no playable audio was returned');
+      }
+
     } catch (error) {
       console.error('❌ Vibe check failed:', error);
       setVibeState(prev => ({
         ...prev,
         isAnalyzing: false,
-        error: error instanceof Error ? error.message : 'Failed to analyze vibe'
+        error: error instanceof Error ? error.message : 'Failed to analyze vibe',
       }));
+      if (error instanceof Error) {
+        setPlayerError(error.message);
+      } else {
+        setPlayerError('Unknown error occurred during vibe check');
+      }
     } finally {
       setIsProcessing(false);
     }
-  }, [stats, isProcessing]);
+  }, [ensureStats, isProcessing, generatedTrackUrls]);
 
   // Toggle vibe check
   const toggleVibeCheck = useCallback(async () => {
@@ -301,25 +642,30 @@ function VibeCheckPageInner() {
       stopCapture();
       setIsActive(false);
       setStats(null);
+      lastVibeCheckRef.current = 0;
+      try {
+        await adaptivePlayer.current.pause();
+      } catch (pauseError) {
+        console.warn('Failed to pause adaptive player:', pauseError);
+      }
+      generatedTrackUrls.current.forEach((url) => URL.revokeObjectURL(url));
+      generatedTrackUrls.current = [];
+      setLatestGeneratedTrack(null);
+      setPlayerError(null);
     } else {
       console.log('▶️ Starting vibe check');
+      setPlayerError(null);
       await startCapture();
       setIsActive(true);
+      try {
+        await adaptivePlayer.current.loadLocalPlaylist(DEFAULT_PLAYLIST);
+      } catch (playlistError) {
+        console.warn('Failed to load default playlist:', playlistError);
+      }
+      setLocalPlaybackState(localPlayer.current.getCurrentState());
+      void performVibeCheckCycle({ force: true });
     }
-  }, [sensorActive, startCapture, stopCapture]);
-
-  // Automatic vibe checking when sensor is active
-  useEffect(() => {
-    if (!isActive || !stats || isProcessing) return;
-
-    // Automatically perform vibe check when stats are available
-    const autoVibeCheck = setTimeout(() => {
-      console.log('🔄 Auto-performing vibe check');
-      performVibeCheckCycle();
-    }, 2000); // Wait 2 seconds after stats are available
-
-    return () => clearTimeout(autoVibeCheck);
-  }, [stats, isActive, isProcessing, performVibeCheckCycle]);
+  }, [sensorActive, startCapture, stopCapture, performVibeCheckCycle]);
 
   // Extract event vibe
   const extractEventVibe = useCallback(async () => {
@@ -375,6 +721,68 @@ function VibeCheckPageInner() {
       error: null
     });
   }, [eventVibeData]);
+
+  const handlePlayGeneratedTrack = useCallback(async () => {
+    if (!latestGeneratedTrack) return;
+
+    try {
+      const played = await adaptivePlayer.current.playGeneratedTrack(latestGeneratedTrack);
+      setLocalPlaybackState(localPlayer.current.getCurrentState());
+      if (!played) {
+        setPlayerError('Track loaded but playback did not start automatically. Use Play to retry.');
+      } else {
+        setPlayerError(null);
+      }
+    } catch (error) {
+      console.warn('Manual playback failed:', error);
+      setPlayerError('Failed to play generated track. Try using the Play button.');
+    }
+  }, [latestGeneratedTrack]);
+
+  const handlePausePlayback = useCallback(async () => {
+    try {
+      await adaptivePlayer.current.pause();
+      setLocalPlaybackState(localPlayer.current.getCurrentState());
+    } catch (error) {
+      console.warn('Manual pause failed:', error);
+    }
+  }, []);
+
+  const handleResetPlayback = useCallback(async () => {
+    try {
+      await adaptivePlayer.current.pause();
+      await adaptivePlayer.current.loadLocalPlaylist(DEFAULT_PLAYLIST);
+      setLatestGeneratedTrack(null);
+      setPlayerError(null);
+      setLocalPlaybackState(localPlayer.current.getCurrentState());
+    } catch (error) {
+      console.warn('Failed to reset local playback:', error);
+      setPlayerError('Failed to reset local playback');
+    }
+  }, []);
+
+  const isGeneratedTrackPlaying = Boolean(
+    latestGeneratedTrack &&
+    audioPlaying &&
+    localPlaybackState.currentTrack?.id === latestGeneratedTrack.id
+  );
+
+  useEffect(() => {
+    return () => {
+      generatedTrackUrls.current.forEach((url) => URL.revokeObjectURL(url));
+      generatedTrackUrls.current = [];
+      try {
+        adaptivePlayer.current.pause();
+      } catch (error) {
+        console.warn('Failed to pause adaptive player during cleanup:', error);
+      }
+      try {
+        adaptivePlayer.current.disconnect();
+      } catch (disconnectError) {
+        console.warn('Failed to disconnect adaptive player:', disconnectError);
+      }
+    };
+  }, []);
 
   return (
     <div 
@@ -596,8 +1004,13 @@ function VibeCheckPageInner() {
                 <div className="space-y-3">
                   <VibeMeter label="Brightness" value={stats.avgBrightness} type="brightness" />
                   <VibeMeter label="Motion" value={stats.motionLevel} type="motion" />
-                  <VibeMeter label="Faces" value={stats.faces} max={10} type="faces" />
-                  <VibeMeter label="Smiles" value={stats.smiles} max={stats.faces || 1} type="smiles" />
+                  <VibeMeter label="Faces" value={stats.faces ?? 0} max={10} type="faces" />
+                  <VibeMeter
+                    label="Smiles"
+                    value={stats.smiles ?? 0}
+                    max={Math.max(1, stats.faces ?? 0)}
+                    type="smiles"
+                  />
                   
                   {stats.audioVolume !== undefined && (
                     <VibeMeter label="Audio Level" value={stats.audioVolume} type="motion" />
@@ -619,7 +1032,7 @@ function VibeCheckPageInner() {
         </div>
 
         {/* Bottom Row: Current Vibe */}
-        <div className="mt-6">
+        <div className="mt-6 space-y-6">
           <div className="stats-card">
             <h2 className="text-lg font-semibold mb-4 text-gray-900">
               Current Vibe
@@ -639,6 +1052,16 @@ function VibeCheckPageInner() {
               </div>
             </div>
           </div>
+
+          <GeneratedTrackWidget
+            track={latestGeneratedTrack}
+            playbackState={localPlaybackState}
+            isPlaying={isGeneratedTrackPlaying}
+            onPlay={handlePlayGeneratedTrack}
+            onPause={handlePausePlayback}
+            onReset={handleResetPlayback}
+            error={playerError}
+          />
         </div>
       </div>
     </div>

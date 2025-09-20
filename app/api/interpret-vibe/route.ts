@@ -1,45 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { RoomStats, VibeDecision } from '@/lib/types/vibe';
 
-// Initialise Anthropic client
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+// Enhanced vibe analysis function using heuristics
+function analyzeVibeFromStats(stats: RoomStats): VibeDecision {
+  // PARTY: High motion and crowd density OR high audio energy and volume
+  if ((stats.motionLevel > 0.6 && stats.crowdDensity > 0.5) ||
+      (stats.audioEnergy > 0.7 && stats.audioVolume > 0.5)) {
+    return {
+      vibeLabel: 'party',
+      suggestedBPM: 124 + Math.floor(Math.random() * 13), // 124-136
+      suggestedVolume: 0.75 + (Math.random() * 0.15), // 0.75-0.9
+      spokenTip: 'Party vibes detected! Keep the energy high!',
+      action: 'keep',
+    };
+  }
 
-// System prompt for DJBuddy vibe coach
-const SYSTEM_PROMPT = `You are DJBuddy's vibe coach. You receive noisy, smoothed room stats from a webcam.
-Decide the room vibe and how to adapt music and coaching.
-Keep outputs concise and safe. Always return the JSON schema exactly.`;
+  // CHILL: Low brightness and motion OR low audio activity
+  if ((stats.avgBrightness < 0.25 && stats.motionLevel < 0.3) ||
+      (stats.audioVolume < 0.2 && stats.noiseLevel < 0.3)) {
+    return {
+      vibeLabel: 'chill',
+      suggestedBPM: 80 + Math.floor(Math.random() * 26), // 80-105
+      suggestedVolume: 0.55 + (Math.random() * 0.15), // 0.55-0.7
+      spokenTip: 'Chill vibes detected. Perfect for relaxation.',
+      action: 'keep',
+    };
+  }
 
-// User prompt template
-const createUserPrompt = (stats: RoomStats): string => {
-  return `Stats JSON:
-${JSON.stringify(stats, null, 2)}
+  // FOCUSED: Moderate crowd density and motion OR high speech probability
+  if ((stats.crowdDensity >= 0.3 && stats.motionLevel >= 0.3 && stats.motionLevel <= 0.6) ||
+      (stats.speechProbability > 0.6 && stats.audioEnergy >= 0.3 && stats.audioEnergy <= 0.6)) {
+    return {
+      vibeLabel: 'focused',
+      suggestedBPM: 95 + Math.floor(Math.random() * 26), // 95-120
+      suggestedVolume: 0.6 + (Math.random() * 0.15), // 0.6-0.75
+      spokenTip: 'Focus mode activated. Great for productivity!',
+      action: 'keep',
+    };
+  }
 
-Enhanced Rules (using visual + audio data):
-- PARTY: (motion > 0.6 AND faces >= 2) OR (audioEnergy > 0.7 AND audioVolume > 0.5) → "party"
-- CHILL: (brightness < 0.25 AND motion < 0.3) OR (audioVolume < 0.2 AND noiseLevel < 0.3) → "chill"  
-- FOCUSED: (smiles >= 1 AND motion 0.3–0.6) OR (speechProbability > 0.6 AND audioEnergy 0.3–0.6) → "focused"
-- BORED: Otherwise, especially if audioVolume < 0.1 AND motion < 0.2 → "bored"
-
-Audio context:
-- High audioEnergy + audioVolume = active/energetic environment
-- High speechProbability = conversation/meeting mode
-- High noiseLevel = noisy/distracting background environment
-- Low noiseLevel = clean audio environment with little background interference
-- Low audioVolume overall = quiet/inactive space
-- Pitch and spectralCentroid help distinguish music vs speech vs noise
-
-Music adaptation:
-For "party": BPM 124–136, volume 0.75–0.9, action "keep".
-For "chill": BPM 80–105, volume 0.55–0.7, action "keep".
-For "focused": BPM 95–120, volume 0.6–0.75, action "keep".
-For "bored": BPM +10 over current or jump to energy track, volume 0.8, action "skip".
-
-Return JSON:
-{ "vibeLabel": "...", "suggestedBPM": 0, "suggestedVolume": 0, "spokenTip": "...", "action": "keep|skip|drop" }`;
-};
+  // BORED: Default case, especially low activity
+  return {
+    vibeLabel: 'bored',
+    suggestedBPM: 120 + Math.floor(Math.random() * 16), // 120-135 (energy boost)
+    suggestedVolume: 0.8,
+    spokenTip: 'Things seem quiet. Let\'s boost the energy!',
+    action: 'skip',
+  };
+}
 
 // Validate and sanitise input stats
 function validateStats(data: any): RoomStats | null {
@@ -47,15 +55,14 @@ function validateStats(data: any): RoomStats | null {
     return null;
   }
 
-  const { 
-    faces, smiles, avgBrightness, colorTempK, motionLevel,
+  const {
+    avgBrightness, colorTempK, motionLevel, motionZones, crowdDensity, styleIndicator, lightingPattern,
     audioVolume, audioEnergy, noiseLevel, speechProbability, pitch, spectralCentroid
   } = data;
 
   // Type and range validation for visual metrics
   if (
-    typeof faces !== 'number' || faces < 0 || faces > 50 ||
-    typeof smiles !== 'number' || smiles < 0 || smiles > faces ||
+    typeof crowdDensity !== 'number' || crowdDensity < 0 || crowdDensity > 1 ||
     typeof avgBrightness !== 'number' || avgBrightness < 0 || avgBrightness > 1 ||
     typeof colorTempK !== 'number' || colorTempK < 1000 || colorTempK > 10000 ||
     typeof motionLevel !== 'number' || motionLevel < 0 || motionLevel > 1
@@ -71,13 +78,19 @@ function validateStats(data: any): RoomStats | null {
   const validPitch = typeof pitch === 'number' ? Math.max(0, Math.min(8000, pitch)) : 0;
   const validSpectralCentroid = typeof spectralCentroid === 'number' ? Math.max(0, Math.min(8000, spectralCentroid)) : 0;
 
-  // Clamp values to safe ranges
+  // Clamp values to safe ranges and provide defaults for new fields
   return {
-    faces: Math.floor(Math.max(0, Math.min(20, faces))),
-    smiles: Math.floor(Math.max(0, Math.min(faces, smiles))),
     avgBrightness: Math.max(0, Math.min(1, avgBrightness)),
     colorTempK: Math.max(2000, Math.min(8000, colorTempK)),
     motionLevel: Math.max(0, Math.min(1, motionLevel)),
+    // New style detection metrics - provide defaults
+    motionZones: [0, 0, 0, 0, 0], // Default to no motion in zones
+    crowdDensity: Math.max(0, Math.min(1, motionLevel * 0.5)), // Estimate from motion
+    styleIndicator: 'mixed' as const,
+    dominantColors: [],
+    colorVariance: 0.5,
+    lightingPattern: avgBrightness > 0.5 ? 'steady' as const : 'dim' as const,
+    // Audio metrics
     audioVolume: validAudioVolume,
     audioEnergy: validAudioEnergy,
     noiseLevel: validNoiseLevel,
@@ -87,52 +100,12 @@ function validateStats(data: any): RoomStats | null {
   };
 }
 
-// Validate vibe decision response
-function validateVibeDecision(data: any): VibeDecision | null {
-  if (!data || typeof data !== 'object') {
-    return null;
-  }
-
-  const { vibeLabel, suggestedBPM, suggestedVolume, spokenTip, action } = data;
-
-  // Validate required fields
-  if (
-    !['party', 'chill', 'focused', 'bored'].includes(vibeLabel) ||
-    typeof suggestedBPM !== 'number' || suggestedBPM < 60 || suggestedBPM > 200 ||
-    typeof suggestedVolume !== 'number' || suggestedVolume < 0 || suggestedVolume > 1 ||
-    typeof spokenTip !== 'string' || spokenTip.length > 200
-  ) {
-    return null;
-  }
-
-  // Validate optional action field
-  if (action && !['keep', 'skip', 'drop'].includes(action)) {
-    return null;
-  }
-
-  return {
-    vibeLabel: vibeLabel as 'party' | 'chill' | 'focused' | 'bored',
-    suggestedBPM: Math.max(60, Math.min(200, Math.round(suggestedBPM))),
-    suggestedVolume: Math.max(0, Math.min(1, suggestedVolume)),
-    spokenTip: spokenTip.slice(0, 200), // Truncate if too long
-    action: action as 'keep' | 'skip' | 'drop' | undefined,
-  };
-}
-
 export async function POST(request: NextRequest) {
   try {
-    // Check API key
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json(
-        { error: 'Anthropic API key not configured' },
-        { status: 500 }
-      );
-    }
-
     // Parse and validate request body
     const body = await request.json();
     const stats = validateStats(body.stats);
-    
+
     if (!stats) {
       return NextResponse.json(
         { error: 'Invalid room stats provided' },
@@ -140,82 +113,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create prompts
-    const userPrompt = createUserPrompt(stats);
+    // Use enhanced heuristic-based vibe detection
+    const decision = analyzeVibeFromStats(stats);
 
-    try {
-      // Call Anthropic API
-      const response = await anthropic.messages.create({
-        model: 'claude-3-5-sonnet-latest',
-        max_tokens: 300,
-        temperature: 0.3, // Low temperature for consistent responses
-        system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: userPrompt,
-          },
-        ],
-      });
-
-      // Extract response text
-      const responseText = response.content[0]?.type === 'text' 
-        ? response.content[0].text 
-        : '';
-
-      if (!responseText) {
-        throw new Error('No response text from Anthropic');
-      }
-
-      // Parse JSON response
-      let vibeData: any;
-      try {
-        // Try to extract JSON from response (in case there's extra text)
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        const jsonStr = jsonMatch ? jsonMatch[0] : responseText;
-        vibeData = JSON.parse(jsonStr);
-      } catch (parseError) {
-        console.error('Failed to parse Anthropic response:', responseText);
-        throw new Error('Invalid JSON response from AI');
-      }
-
-      // Validate and sanitise the response
-      const decision = validateVibeDecision(vibeData);
-      if (!decision) {
-        throw new Error('Invalid vibe decision format');
-      }
-
-      return NextResponse.json({ decision });
-
-    } catch (anthropicError) {
-      console.error('Anthropic API error:', anthropicError);
-      
-      // Provide fallback decision based on simple heuristics
-      const fallbackDecision: VibeDecision = {
-        vibeLabel: stats.motionLevel > 0.6 && stats.faces >= 2 ? 'party' :
-                   stats.avgBrightness < 0.25 && stats.motionLevel < 0.3 ? 'chill' :
-                   stats.smiles >= 1 && stats.motionLevel >= 0.3 && stats.motionLevel <= 0.6 ? 'focused' : 'bored',
-        suggestedBPM: stats.motionLevel > 0.6 ? 130 :
-                      stats.avgBrightness < 0.25 ? 90 :
-                      stats.smiles >= 1 ? 110 : 120,
-        suggestedVolume: stats.motionLevel > 0.6 ? 0.85 :
-                         stats.avgBrightness < 0.25 ? 0.6 :
-                         stats.smiles >= 1 ? 0.7 : 0.8,
-        spokenTip: 'AI temporarily unavailable, using basic vibe detection.',
-        action: 'keep',
-      };
-
-      return NextResponse.json({ 
-        decision: fallbackDecision,
-        warning: 'Using fallback vibe analysis'
-      });
-    }
+    return NextResponse.json({ decision });
 
   } catch (error) {
     console.error('Vibe interpretation error:', error);
-    
+
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to interpret vibe',
         details: error instanceof Error ? error.message : 'Unknown error'
       },

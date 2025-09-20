@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { gsap } from 'gsap';
 import { useAudioEngine } from '@/lib/hooks/useAudioEngine';
 import { useVUMeter } from '@/lib/hooks/useVUMeter';
@@ -34,6 +35,8 @@ export const ModernDeck: React.FC<ModernDeckProps> = ({
   const [leftGain, setLeftGain] = useState(0.7);
   const [rightGain, setRightGain] = useState(0.7);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  const router = useRouter();
 
   // Audio engine
   const audioEngine = useAudioEngine();
@@ -90,6 +93,13 @@ export const ModernDeck: React.FC<ModernDeckProps> = ({
     setTimeout(() => onSelect('amplify'), 300);
   }, [selectedOption, leftGain, rightGain, audioEngine, onSelect]);
 
+  const handleInvestigate = useCallback(() => {
+    handleAmplify();
+    setTimeout(() => {
+      window.location.href = '/vibe?mode=control';
+    }, 300);
+  }, [handleAmplify]);
+
   // Handle crossfader movement
   const handleCrossfaderMove = useCallback((event: React.MouseEvent) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -106,6 +116,16 @@ export const ModernDeck: React.FC<ModernDeckProps> = ({
       });
     }
   }, []);
+
+  const waveformHeights = useMemo(
+    () => Array.from({ length: 32 }, (_, idx) => 30 + 45 * (0.5 + 0.5 * Math.sin(idx * 0.65))),
+    []
+  );
+
+  const waveformHeightsAlt = useMemo(
+    () => waveformHeights.map((_, idx) => waveformHeights[(idx + 10) % waveformHeights.length]),
+    [waveformHeights]
+  );
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -297,10 +317,19 @@ export const ModernDeck: React.FC<ModernDeckProps> = ({
             {/* Jog Wheel */}
             <div className="jog-wheel-container">
               <div className="jog-wheel-text">Investigate the vibes for me</div>
-              <div 
+              <div
                 ref={rightJogRef}
                 className="modern-jog-wheel"
-                onClick={handleAmplify}
+                onClick={handleInvestigate}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleInvestigate();
+                  }
+                }}
+                suppressHydrationWarning
               >
                 <div className="jog-wheel-outer-ring" />
                 <div className="jog-wheel-inner">
@@ -321,13 +350,13 @@ export const ModernDeck: React.FC<ModernDeckProps> = ({
             <div className="track-bar">
               <div className="track-waveform">
                 <div className="waveform-bars">
-                  {Array.from({ length: 32 }, (_, i) => (
-                    <div 
-                      key={i} 
+                  {waveformHeights.map((height, i) => (
+                    <div
+                      key={i}
                       className="waveform-bar"
-                      style={{ 
-                        height: `${Math.random() * 60 + 20}%`,
-                        opacity: selectedOption === 'hot-cue' ? 0.8 : 0.4
+                      style={{
+                        height: `${height}%`,
+                        opacity: selectedOption === 'hot-cue' ? 0.8 : 0.4,
                       }}
                     />
                   ))}
@@ -341,13 +370,13 @@ export const ModernDeck: React.FC<ModernDeckProps> = ({
               </div>
               <div className="track-waveform">
                 <div className="waveform-bars">
-                  {Array.from({ length: 32 }, (_, i) => (
-                    <div 
-                      key={i} 
+                  {waveformHeightsAlt.map((height, i) => (
+                    <div
+                      key={i}
                       className="waveform-bar"
-                      style={{ 
-                        height: `${Math.random() * 60 + 20}%`,
-                        opacity: selectedOption === 'amplify' ? 0.8 : 0.4
+                      style={{
+                        height: `${height}%`,
+                        opacity: selectedOption === 'amplify' ? 0.8 : 0.4,
                       }}
                     />
                   ))}
