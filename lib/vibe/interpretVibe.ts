@@ -121,44 +121,44 @@ function generateFallbackDecision(stats: RoomStats): VibeDecision {
   // Generate contextual spoken tips based on audio + visual analysis
   const tips = {
     party: audioEnergy > 0.7 ? [
-      "High energy detected! The audio's pumping!",
-      "Great party vibes - music and movement in sync!",
-      "Everyone's active - perfect dance energy!",
+      "High energy detected! The audio's pumping! 🎉",
+      "Great party vibes - music and movement in sync! 💃",
+      "Everyone's active - perfect dance energy! 🕺",
     ] : [
-      "Visual party energy detected! Let's get loud!",
-      "Great movement - adding some audio energy!",
-      "Party vibes building - turn it up!",
+      "Visual party energy detected! Let's get loud! 📈",
+      "Great movement - adding some audio energy! 🎵",
+      "Party vibes building - turn it up! 🔊",
     ],
     chill: audioVolume < 0.2 && noiseLevel < 0.3 ? [
-      "Quiet, clean space detected - perfect for relaxation.",
-      "Low noise environment - ideal for chilling.",
-      "Peaceful, undisturbed vibes - great for unwinding.",
+      "Quiet, clean space detected - perfect for relaxation 😌",
+      "Low noise environment - ideal for chilling 🧘",
+      "Peaceful, undisturbed vibes - great for unwinding 🌙",
     ] : [
-      "Cosy visual atmosphere - keeping it mellow.",
-      "Relaxed lighting - perfect for background music.",
-      "Chill vibes detected - staying low-key.",
+      "Cosy visual atmosphere - keeping it mellow 🛋️",
+      "Relaxed lighting - perfect for background music 💡",
+      "Chill vibes detected - staying low-key 🎶",
     ],
     focused: speechProbability > 0.6 ? [
-      "Conversation detected - maintaining focus music.",
-      "Speech activity - perfect concentration environment.",
-      "Meeting mode - keeping the background steady.",
+      "Conversation detected - maintaining focus music 💬",
+      "Speech activity - perfect concentration environment 🎯",
+      "Meeting mode - keeping the background steady 📊",
     ] : [
-      "Good focus energy - visual concentration detected!",
-      "Balanced atmosphere for productivity.",
-      "Steady vibes - perfect for getting things done.",
+      "Good focus energy - visual concentration detected! 👀",
+      "Balanced atmosphere for productivity 💼",
+      "Steady vibes - perfect for getting things done ✅",
     ],
     bored: audioVolume < 0.1 && motionLevel < 0.2 ? [
-      "Very quiet space - time for an energy boost!",
-      "Low activity detected - let's wake things up!",
-      "Silent room needs some life - switching tracks!",
+      "Very quiet space - time for an energy boost! ⚡",
+      "Low activity detected - let's wake things up! ☕",
+      "Silent room needs some life - switching tracks! 🔄",
     ] : noiseLevel > 0.7 ? [
-      "Noisy environment detected - adding clear, energetic music!",
-      "Background noise present - boosting the signal!",
-      "Cutting through the noise with better vibes!",
+      "Noisy environment detected - adding clear, energetic music! 🎼",
+      "Background noise present - boosting the signal! 📡",
+      "Cutting through the noise with better vibes! 🎧",
     ] : [
-      "Low engagement detected - adding some energy!",
-      "Time to shake things up a bit!",
-      "Let's bring some excitement to the room!",
+      "Low engagement detected - adding some energy! 🚀",
+      "Time to shake things up a bit! 🎲",
+      "Let's bring some excitement to the room! ✨",
     ],
   };
 
@@ -208,10 +208,16 @@ export async function interpretVibe(
   }
 
   // Try AI interpretation with retries
+  console.log('🤖 Attempting AI vibe interpretation...', { 
+    faces, smiles, avgBrightness, motionLevel, audioVolume, audioEnergy 
+  });
+
   for (let attempt = 0; attempt <= opts.retries; attempt++) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), opts.timeout);
+
+      console.log(`🔄 API call attempt ${attempt + 1}/${opts.retries + 1} to /api/interpret-vibe`);
 
       const response = await fetch('/api/interpret-vibe', {
         method: 'POST',
@@ -224,12 +230,20 @@ export async function interpretVibe(
 
       clearTimeout(timeoutId);
 
+      console.log('📡 API Response:', { 
+        status: response.status, 
+        statusText: response.statusText,
+        ok: response.ok 
+      });
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        console.error('❌ API Error:', errorData);
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
+      console.log('✅ API Success:', data);
       
       if (!data.decision) {
         throw new Error('No decision returned from API');
@@ -243,24 +257,40 @@ export async function interpretVibe(
         typeof decision.suggestedVolume !== 'number' ||
         typeof decision.spokenTip !== 'string'
       ) {
+        console.error('❌ Invalid decision format:', decision);
         throw new Error('Invalid decision format from API');
       }
+
+      console.log('🎯 AI Vibe Decision:', {
+        vibe: decision.vibeLabel,
+        bpm: decision.suggestedBPM,
+        volume: decision.suggestedVolume,
+        action: decision.action
+      });
 
       return decision;
 
     } catch (error) {
-      console.warn(`Vibe interpretation attempt ${attempt + 1} failed:`, error);
+      console.warn(`⚠️ Vibe interpretation attempt ${attempt + 1} failed:`, error);
       
       // If this is the last attempt and fallback is enabled, use fallback
       if (attempt === opts.retries && opts.fallbackEnabled) {
-        console.log('Using fallback vibe interpretation');
-        return generateFallbackDecision(stats);
+        console.log('🔄 Using fallback vibe interpretation (AI unavailable)');
+        const fallbackDecision = generateFallbackDecision(stats);
+        console.log('🎯 Fallback Vibe Decision:', {
+          vibe: fallbackDecision.vibeLabel,
+          bpm: fallbackDecision.suggestedBPM,
+          volume: fallbackDecision.suggestedVolume,
+          source: 'fallback'
+        });
+        return fallbackDecision;
       }
       
       // If this is not the last attempt, continue to retry
       if (attempt < opts.retries) {
-        // Wait before retrying (exponential backoff)
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        const waitTime = Math.pow(2, attempt) * 1000;
+        console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
         continue;
       }
       

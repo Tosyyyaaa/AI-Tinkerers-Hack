@@ -60,12 +60,21 @@ function VibeMeter({
 }
 
 // Component for displaying vibe decision
-function VibeDisplay({ decision }: { decision: VibeDecision | null }) {
+function VibeDisplay({ 
+  decision, 
+  isAI = true 
+}: { 
+  decision: VibeDecision | null;
+  isAI?: boolean;
+}) {
   if (!decision) {
     return (
       <div className="stats-card text-center">
         <div className="text-gray-500 dark:text-gray-400">
           No vibe detected yet...
+        </div>
+        <div className="text-xs text-gray-400 mt-2">
+          Start vibe check to begin analysis
         </div>
       </div>
     );
@@ -73,8 +82,17 @@ function VibeDisplay({ decision }: { decision: VibeDecision | null }) {
 
   return (
     <div className="stats-card text-center space-y-4">
-      <div className={`vibe-label vibe-label-${decision.vibeLabel} inline-block`}>
-        {decision.vibeLabel.toUpperCase()} VIBE
+      <div className="flex items-center justify-center gap-2 mb-2">
+        <div className={`vibe-label vibe-label-${decision.vibeLabel} inline-block animate-pulse`}>
+          {decision.vibeLabel.toUpperCase()} VIBE
+        </div>
+        <div className={`text-xs px-2 py-1 rounded-full ${
+          isAI 
+            ? 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-300' 
+            : 'bg-orange-100 text-orange-600 dark:bg-orange-900 dark:text-orange-300'
+        }`}>
+          {isAI ? '🤖 AI' : '🧠 Fallback'}
+        </div>
       </div>
       
       <div className="grid grid-cols-2 gap-4 text-sm">
@@ -369,6 +387,8 @@ function VibeCheckPageInner() {
     decision: null,
   });
 
+  const [isAIDecision, setIsAIDecision] = useState(true);
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastVibeCheck, setLastVibeCheck] = useState<number>(0);
   const [audioPlaying, setAudioPlaying] = useState(false);
@@ -406,6 +426,15 @@ function VibeCheckPageInner() {
     const now = Date.now();
     if (now - lastVibeCheck < 1500) return; // Minimum 1.5s between checks
 
+    console.log('🎵 Starting vibe check cycle...', {
+      faces: stats.faces,
+      smiles: stats.smiles,
+      brightness: stats.avgBrightness,
+      motion: stats.motionLevel,
+      audioVolume: stats.audioVolume,
+      audioEnergy: stats.audioEnergy,
+    });
+
     setIsProcessing(true);
     setLastVibeCheck(now);
 
@@ -416,36 +445,67 @@ function VibeCheckPageInner() {
         fallbackEnabled: true,
       });
 
+      console.log('🎯 Vibe detected:', {
+        vibe: result.decision.vibeLabel,
+        bpm: result.decision.suggestedBPM,
+        volume: result.decision.suggestedVolume,
+        action: result.decision.action,
+        tip: result.decision.spokenTip,
+      });
+
       setVibeState(prev => ({
         ...prev,
         decision: result.decision,
         error: result.error || null,
       }));
 
-      // Play TTS audio if available
+      // Track if this was an AI decision or fallback
+      setIsAIDecision(!result.error);
+
+      // Play TTS audio if available (using adaptive player for better routing)
       if (result.audioBuffer) {
         try {
-          await localPlayer.current.playTTS(result.audioBuffer);
+          console.log('🎤 Playing coaching tip...');
+          await adaptivePlayer.current.playTTS(result.audioBuffer);
         } catch (ttsError) {
           console.warn('Failed to play TTS:', ttsError);
+          // Fallback to local player
+          try {
+            await localPlayer.current.playTTS(result.audioBuffer);
+          } catch (fallbackError) {
+            console.warn('TTS fallback also failed:', fallbackError);
+          }
         }
       }
 
       // Adapt playback based on decision using adaptive player
       try {
-        await adaptivePlayer.current.adaptPlayback(result.decision);
+        console.log('🎶 Adapting playback...', {
+          playerType: adaptivePlayer.current.getActivePlayerType(),
+          targetVolume: result.decision.suggestedVolume,
+          action: result.decision.action,
+        });
+        
+        const adaptSuccess = await adaptivePlayer.current.adaptPlayback(result.decision);
+        
+        if (adaptSuccess) {
+          console.log('✅ Playback adapted successfully');
+        } else {
+          console.warn('⚠️ Playback adaptation returned false');
+        }
       } catch (playbackError) {
-        console.warn('Failed to adapt playback:', playbackError);
+        console.warn('❌ Failed to adapt playback:', playbackError);
       }
 
     } catch (error) {
-      console.error('Vibe check failed:', error);
+      console.error('❌ Vibe check failed:', error);
       setVibeState(prev => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Vibe check failed',
       }));
     } finally {
       setIsProcessing(false);
+      console.log('🏁 Vibe check cycle completed');
     }
   }, [stats, isProcessing, lastVibeCheck]);
 
@@ -468,11 +528,21 @@ function VibeCheckPageInner() {
       try {
         await startCapture();
         
+        // Load default playlist for adaptive player first
+        console.log('🎵 Loading default playlist...');
+        await adaptivePlayer.current.loadLocalPlaylist(DEFAULT_PLAYLIST);
+        
         // Start periodic vibe checks
+        console.log('🎯 Starting vibe detection with 2-second intervals...');
         vibeCheckInterval.current = setInterval(performVibeCheckCycle, 2000);
         
-        // Load default playlist for adaptive player
-        await adaptivePlayer.current.loadLocalPlaylist(DEFAULT_PLAYLIST);
+        // Perform an immediate vibe check to get started
+        setTimeout(() => {
+          if (stats) {
+            console.log('🚀 Performing initial vibe check...');
+            performVibeCheckCycle();
+          }
+        }, 1000);
         
       } catch (error) {
         console.error('Failed to start vibe check:', error);
@@ -596,23 +666,47 @@ function VibeCheckPageInner() {
                     isActive ? 'control-button-danger' : 'control-button-primary'
                   }`}
                 >
-                  {isProcessing ? 'Processing...' : isActive ? 'Stop Vibe Check' : 'Start Vibe Check'}
+                  {isProcessing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Analysing Vibe...
+                    </span>
+                  ) : isActive ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                      Stop Vibe Check
+                    </span>
+                  ) : (
+                    'Start Vibe Check'
+                  )}
                 </button>
                 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-1">
                   <button
                     onClick={testSpotify}
                     disabled={isProcessing}
                     className="control-button control-button-secondary text-xs"
                   >
-                    Test Spotify
+                    Spotify
                   </button>
                   <button
                     onClick={testTTS}
                     disabled={isProcessing}
                     className="control-button control-button-secondary text-xs"
                   >
-                    Test TTS
+                    TTS
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (stats && !isProcessing) {
+                        console.log('🧪 Manual vibe check triggered');
+                        performVibeCheckCycle();
+                      }
+                    }}
+                    disabled={isProcessing || !stats}
+                    className="control-button control-button-secondary text-xs"
+                  >
+                    Vibe
                   </button>
                 </div>
               </div>
@@ -631,9 +725,26 @@ function VibeCheckPageInner() {
           {/* Live Metrics Column */}
           <div className="xl:col-span-1 lg:col-span-1">
             <div className="stats-card">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
-                Live Metrics
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Live Metrics
+                </h2>
+                {isActive && (
+                  <div className="flex items-center gap-2 text-sm">
+                    {isProcessing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-blue-500 border-t-transparent"></div>
+                        <span className="text-blue-600 dark:text-blue-400">Analysing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-green-600 dark:text-green-400">Active</span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
               
               {stats ? (
                 <div className="space-y-4">
@@ -746,7 +857,10 @@ function VibeCheckPageInner() {
                 <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
                   Current Vibe
                 </h2>
-                <VibeDisplay decision={vibeState.decision} />
+                <VibeDisplay 
+                  decision={vibeState.decision} 
+                  isAI={isAIDecision}
+                />
               </div>
 
               {/* Audio Status */}
