@@ -1,0 +1,21 @@
+# Core MCP and Agno dependencies
+# Note: MCP packages may need to be installed from specific sources
+# For now, we'll install basic dependencies and handle MCP imports gracefully
+agno>=0.1.0
+phidata  # Alternative name for agno package
+
+# FastAPI and web server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# HTTP client for weather API
+aiohttp>=3.9.0
+
+# Data validation and parsing
+pydantic>=2.0.0
+
+# OpenAI for agent model
+openai>=1.0.0
+
+# Environment variables (optional but helpful)
+python-dotenv>=1.0.0

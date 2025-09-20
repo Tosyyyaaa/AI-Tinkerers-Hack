@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "2025-06-18",
+  "name": "weather-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for weather data with environment-aware music bucket categorization",
+  "author": "Weather MCP Team",
+  "license": "MIT",
+  "command": {
+    "command": "python",
+    "args": ["mcp_weather_server.py"]
+  },
+  "capabilities": {
+    "tools": {
+      "listChanged": false
+    }
+  },
+  "tools": [
+    {
+      "name": "get_weather",
+      "description": "Get current weather for a city and return a weather bucket (sunny/cloudy/rainy/windy/night) for environment-aware music selection",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string",
+            "description": "City name (e.g., 'London', 'New York', 'Tokyo')"
+          }
+        },
+        "required": ["city"]
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "bucket": {
+            "type": "string",
+            "enum": ["sunny", "cloudy", "rainy", "windy", "night"],
+            "description": "Weather category for environment-aware music selection"
+          }
+        },
+        "required": ["bucket"]
+      }
+    }
+  ],
+  "environment": {
+    "variables": {
+      "OPENWEATHER_API_KEY": {
+        "description": "OpenWeather API key for weather data access",
+        "required": false,
+        "default": "mock"
+      }
+    }
+  },
+  "requirements": {
+    "python": ">=3.8",
+    "packages": [
+      "mcp",
+      "aiohttp"
+    ]
+  }
+}
