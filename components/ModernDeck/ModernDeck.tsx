@@ -157,34 +157,26 @@ export const ModernDeck: React.FC<ModernDeckProps> = ({
       {/* Main Deck Surface */}
       <div className="modern-deck-surface">
         
-        {/* Top Header */}
-        <div className="modern-deck-header">
-          <div className="deck-brand">
-            <div className="brand-logo">MB</div>
-            <div className="brand-text">MusicBuddy</div>
-          </div>
-          <div className="deck-status">
-            <div className={`status-indicator ${isPlaying ? 'playing' : 'stopped'}`} />
-            <span className="status-text">{isPlaying ? 'PLAYING' : 'READY'}</span>
-          </div>
-        </div>
+            {/* Top Header */}
+            <div className="modern-deck-header">
+              <div className="deck-brand">
+                <div className="brand-text">MusicBuddy</div>
+              </div>
+              <div className="deck-status">
+                <div className={`status-indicator ${isPlaying ? 'playing' : 'stopped'}`} />
+                <span className="status-text">{isPlaying ? 'PLAYING' : 'LOCKED IN'}</span>
+              </div>
+            </div>
 
         {/* Main Control Area */}
         <div className="modern-deck-main">
           
           {/* Left Deck */}
           <div className="deck-section left-deck">
-            {/* Load/Cue Controls */}
-            <div className="deck-controls-top">
-              <button className="load-button">LOAD</button>
-              <div className="tempo-display">
-                <span className="tempo-value">120.0</span>
-                <span className="tempo-unit">BPM</span>
-              </div>
-            </div>
 
             {/* Jog Wheel */}
             <div className="jog-wheel-container">
+              <div className="jog-wheel-text">I want to control the vibes</div>
               <div 
                 ref={leftJogRef}
                 className="modern-jog-wheel"
@@ -193,206 +185,175 @@ export const ModernDeck: React.FC<ModernDeckProps> = ({
                 <div className="jog-wheel-outer-ring" />
                 <div className="jog-wheel-inner">
                   <div className="jog-wheel-center">
-                    <div className="jog-wheel-logo">♪</div>
+                    <div className="jog-wheel-logo"></div>
                   </div>
-                </div>
-                <div className="jog-wheel-markings">
-                  {Array.from({ length: 60 }, (_, i) => (
-                    <div 
-                      key={i} 
-                      className="jog-marking"
-                      style={{ 
-                        transform: `rotate(${i * 6}deg) translateY(-140px)`,
-                        height: i % 5 === 0 ? '8px' : '4px'
-                      }}
-                    />
-                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Hot Cue Pads */}
-            <div className="cue-pads-section">
-              <div className="cue-pads-row">
-                {Array.from({ length: 4 }, (_, i) => (
-                  <div
-                    key={i}
-                    ref={i === 0 ? primaryPadRef : undefined}
-                    className={`modern-cue-pad ${i === 0 ? 'primary' : ''} ${
-                      selectedOption === 'hot-cue' && i === 0 ? 'active' : ''
-                    }`}
-                    onClick={i === 0 ? handleHotCue : undefined}
-                  >
-                    <span className="pad-number">{i + 1}</span>
-                    <span className="pad-label">{i === 0 ? 'HOT CUE' : `CUE ${i + 1}`}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
 
-            {/* EQ and Gain */}
-            <div className="eq-section">
-              <div className="eq-knob-group">
-                <div className="eq-knob">
-                  <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
-                  <span className="knob-label">HIGH</span>
-                </div>
-                <div className="eq-knob">
-                  <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
-                  <span className="knob-label">MID</span>
-                </div>
-                <div className="eq-knob">
-                  <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
-                  <span className="knob-label">LOW</span>
-                </div>
-              </div>
-              <div className="gain-control">
-                <div className="gain-knob">
-                  <div className="knob-dial" style={{ transform: `rotate(${leftGain * 270 - 135}deg)` }} />
-                  <span className="knob-label">GAIN</span>
-                </div>
-              </div>
-            </div>
           </div>
 
-          {/* Center Mixer */}
-          <div className="center-mixer">
-            {/* VU Meters */}
-            <div className="vu-meter-section">
-              <div className="vu-meter-pair">
-                <div className="vu-meter modern">
-                  <div ref={leftVURef} className="vu-fill" style={{ height: `${Math.min(100, vuData.leftRMS * 2)}%` }} />
+          {/* Center Mixer - Pioneer Style */}
+          <div className="center-mixer pioneer-style">
+            <div className="mixer-channels-row">
+              {/* Channel 1 */}
+              <div className="mixer-channel">
+                {/* EQ Knobs */}
+                <div className="eq-knobs-vertical">
+                  <div className="eq-knob-container">
+                    <div className="pioneer-knob">
+                      <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
+                    </div>
+                    <span className="knob-label">LOW</span>
+                  </div>
+                  <div className="eq-knob-container">
+                    <div className="pioneer-knob">
+                      <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
+                    </div>
+                    <span className="knob-label">CFX</span>
+                  </div>
+                  <div className="eq-knob-container">
+                    <div className="pioneer-knob">
+                      <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
+                    </div>
+                    <span className="knob-label">LOW</span>
+                    <span className="knob-sublabel">HI</span>
+                  </div>
                 </div>
-                <div className="vu-meter modern">
-                  <div ref={rightVURef} className="vu-fill" style={{ height: `${Math.min(100, vuData.rightRMS * 2)}%` }} />
+                
+                {/* CUE Button */}
+                <div className="cue-button-container">
+                  <button className="pioneer-cue-button" onClick={handleHotCue}>
+                    <span className="cue-text">CUE</span>
+                  </button>
+                  <span className="channel-number">1</span>
                 </div>
+                
+              </div>
+
+              {/* Channel 2 */}
+              <div className="mixer-channel">
+                {/* EQ Knobs */}
+                <div className="eq-knobs-vertical">
+                  <div className="eq-knob-container">
+                    <div className="pioneer-knob">
+                      <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
+                    </div>
+                    <span className="knob-label">LOW</span>
+                  </div>
+                  <div className="eq-knob-container">
+                    <div className="pioneer-knob">
+                      <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
+                    </div>
+                    <span className="knob-label">CFX</span>
+                  </div>
+                  <div className="eq-knob-container">
+                    <div className="pioneer-knob">
+                      <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
+                    </div>
+                    <span className="knob-label">LOW</span>
+                    <span className="knob-sublabel">HI</span>
+                  </div>
+                </div>
+                
+                {/* CUE Button */}
+                <div className="cue-button-container">
+                  <button className="pioneer-cue-button" onClick={handleAmplify}>
+                    <span className="cue-text">CUE</span>
+                  </button>
+                  <span className="channel-number">2</span>
+                </div>
+                
               </div>
             </div>
 
-            {/* Master Level */}
-            <div className="master-section">
-              <div className="master-knob">
-                <div className="knob-dial large" style={{ transform: 'rotate(-45deg)' }} />
-                <span className="knob-label">MASTER</span>
-              </div>
-            </div>
-
-            {/* Crossfader */}
-            <div className="crossfader-section">
-              <span className="crossfader-label">CROSSFADER</span>
-              <div 
-                className="crossfader-track"
-                onMouseMove={handleCrossfaderMove}
-                onClick={handleCrossfaderMove}
-              >
+            {/* Crossfader Section - Now at Bottom */}
+            <div className="crossfader-section-pioneer">
+              <div className="crossfader-container">
                 <div 
-                  ref={crossfaderRef}
-                  className="crossfader-handle"
-                  style={{ left: `${crossfaderPosition * 100}%` }}
-                />
+                  className="crossfader-track-pioneer"
+                  onMouseMove={handleCrossfaderMove}
+                  onClick={handleCrossfaderMove}
+                >
+                  <div 
+                    ref={crossfaderRef}
+                    className="crossfader-handle-pioneer"
+                    style={{ left: `${crossfaderPosition * 100}%` }}
+                  />
+                  <div className="crossfader-markings">
+                    {Array.from({ length: 5 }, (_, i) => (
+                      <div key={i} className="crossfader-mark" style={{ left: `${i * 25}%` }} />
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-
-            {/* Beat FX */}
-            <div className="beat-fx-section">
-              <button className={`fx-button ${selectedOption === 'amplify' ? 'active' : ''}`} onClick={handleAmplify}>
-                <span className="fx-label">BEAT FX</span>
-                <span className="fx-sublabel">AMPLIFY</span>
-              </button>
             </div>
           </div>
 
           {/* Right Deck (Mirror of Left) */}
           <div className="deck-section right-deck">
-            {/* Load/Cue Controls */}
-            <div className="deck-controls-top">
-              <button className="load-button">LOAD</button>
-              <div className="tempo-display">
-                <span className="tempo-value">120.0</span>
-                <span className="tempo-unit">BPM</span>
-              </div>
-            </div>
 
             {/* Jog Wheel */}
             <div className="jog-wheel-container">
+              <div className="jog-wheel-text">Investigate the vibes for me</div>
               <div 
                 ref={rightJogRef}
                 className="modern-jog-wheel"
+                onClick={handleAmplify}
               >
                 <div className="jog-wheel-outer-ring" />
                 <div className="jog-wheel-inner">
                   <div className="jog-wheel-center">
-                    <div className="jog-wheel-logo">♪</div>
+                    <div className="jog-wheel-logo"></div>
                   </div>
                 </div>
-                <div className="jog-wheel-markings">
-                  {Array.from({ length: 60 }, (_, i) => (
+              </div>
+            </div>
+
+
+          </div>
+        </div>
+
+        {/* Bottom Track Bar */}
+        <div className="modern-deck-footer">
+          <div className="track-bar-container">
+            <div className="track-bar">
+              <div className="track-waveform">
+                <div className="waveform-bars">
+                  {Array.from({ length: 32 }, (_, i) => (
                     <div 
                       key={i} 
-                      className="jog-marking"
+                      className="waveform-bar"
                       style={{ 
-                        transform: `rotate(${i * 6}deg) translateY(-140px)`,
-                        height: i % 5 === 0 ? '8px' : '4px'
+                        height: `${Math.random() * 60 + 20}%`,
+                        opacity: selectedOption === 'hot-cue' ? 0.8 : 0.4
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <div className="track-divider">
+                <div className="team-names">
+                  <div className="team-title">Created by</div>
+                  <div className="team-members">Antonina Sukhanova • Ayomi Igandan • Nikolai Malozemov</div>
+                </div>
+              </div>
+              <div className="track-waveform">
+                <div className="waveform-bars">
+                  {Array.from({ length: 32 }, (_, i) => (
+                    <div 
+                      key={i} 
+                      className="waveform-bar"
+                      style={{ 
+                        height: `${Math.random() * 60 + 20}%`,
+                        opacity: selectedOption === 'amplify' ? 0.8 : 0.4
                       }}
                     />
                   ))}
                 </div>
               </div>
             </div>
-
-            {/* Hot Cue Pads */}
-            <div className="cue-pads-section">
-              <div className="cue-pads-row">
-                {Array.from({ length: 4 }, (_, i) => (
-                  <div
-                    key={i}
-                    className="modern-cue-pad"
-                  >
-                    <span className="pad-number">{i + 5}</span>
-                    <span className="pad-label">CUE {i + 5}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* EQ and Gain */}
-            <div className="eq-section">
-              <div className="eq-knob-group">
-                <div className="eq-knob">
-                  <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
-                  <span className="knob-label">HIGH</span>
-                </div>
-                <div className="eq-knob">
-                  <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
-                  <span className="knob-label">MID</span>
-                </div>
-                <div className="eq-knob">
-                  <div className="knob-dial" style={{ transform: 'rotate(0deg)' }} />
-                  <span className="knob-label">LOW</span>
-                </div>
-              </div>
-              <div className="gain-control">
-                <div className="gain-knob">
-                  <div className="knob-dial" style={{ transform: `rotate(${rightGain * 270 - 135}deg)` }} />
-                  <span className="knob-label">GAIN</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Action Bar */}
-        <div className="modern-deck-footer">
-          <div className="action-hint">
-            <span className="hint-key">Q</span>
-            <span className="hint-text">Hot Cue</span>
-          </div>
-          <div className="deck-info">
-            <span className="deck-model">DDJ-FLX4 Style</span>
-          </div>
-          <div className="action-hint">
-            <span className="hint-key">W</span>
-            <span className="hint-text">Amplify</span>
           </div>
         </div>
       </div>

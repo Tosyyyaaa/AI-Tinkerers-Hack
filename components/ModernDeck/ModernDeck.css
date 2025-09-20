@@ -162,8 +162,8 @@
 
 .modern-jog-wheel {
   position: relative;
-  width: 280px;
-  height: 280px;
+  width: 350px;
+  height: 350px;
   cursor: pointer;
   transition: transform 0.3s ease;
 }
@@ -176,12 +176,136 @@
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
-  border: 3px solid rgba(255, 255, 255, 0.1);
+  background: 
+    conic-gradient(
+      from 0deg,
+      rgba(30, 30, 50, 0.9) 0deg,
+      rgba(60, 60, 90, 0.9) 3deg,
+      rgba(30, 30, 50, 0.9) 6deg,
+      rgba(60, 60, 90, 0.9) 9deg,
+      rgba(30, 30, 50, 0.9) 12deg,
+      rgba(60, 60, 90, 0.9) 15deg,
+      rgba(30, 30, 50, 0.9) 18deg,
+      rgba(60, 60, 90, 0.9) 21deg,
+      rgba(30, 30, 50, 0.9) 24deg,
+      rgba(60, 60, 90, 0.9) 27deg,
+      rgba(30, 30, 50, 0.9) 30deg,
+      rgba(60, 60, 90, 0.9) 33deg,
+      rgba(30, 30, 50, 0.9) 36deg,
+      rgba(60, 60, 90, 0.9) 39deg,
+      rgba(30, 30, 50, 0.9) 42deg,
+      rgba(60, 60, 90, 0.9) 45deg,
+      rgba(30, 30, 50, 0.9) 48deg,
+      rgba(60, 60, 90, 0.9) 51deg,
+      rgba(30, 30, 50, 0.9) 54deg,
+      rgba(60, 60, 90, 0.9) 57deg,
+      rgba(30, 30, 50, 0.9) 60deg,
+      rgba(60, 60, 90, 0.9) 63deg,
+      rgba(30, 30, 50, 0.9) 66deg,
+      rgba(60, 60, 90, 0.9) 69deg,
+      rgba(30, 30, 50, 0.9) 72deg,
+      rgba(60, 60, 90, 0.9) 75deg,
+      rgba(30, 30, 50, 0.9) 78deg,
+      rgba(60, 60, 90, 0.9) 81deg,
+      rgba(30, 30, 50, 0.9) 84deg,
+      rgba(60, 60, 90, 0.9) 87deg,
+      rgba(30, 30, 50, 0.9) 90deg,
+      rgba(60, 60, 90, 0.9) 93deg,
+      rgba(30, 30, 50, 0.9) 96deg,
+      rgba(60, 60, 90, 0.9) 99deg,
+      rgba(30, 30, 50, 0.9) 102deg,
+      rgba(60, 60, 90, 0.9) 105deg,
+      rgba(30, 30, 50, 0.9) 108deg,
+      rgba(60, 60, 90, 0.9) 111deg,
+      rgba(30, 30, 50, 0.9) 114deg,
+      rgba(60, 60, 90, 0.9) 117deg,
+      rgba(30, 30, 50, 0.9) 120deg,
+      rgba(60, 60, 90, 0.9) 123deg,
+      rgba(30, 30, 50, 0.9) 126deg,
+      rgba(60, 60, 90, 0.9) 129deg,
+      rgba(30, 30, 50, 0.9) 132deg,
+      rgba(60, 60, 90, 0.9) 135deg,
+      rgba(30, 30, 50, 0.9) 138deg,
+      rgba(60, 60, 90, 0.9) 141deg,
+      rgba(30, 30, 50, 0.9) 144deg,
+      rgba(60, 60, 90, 0.9) 147deg,
+      rgba(30, 30, 50, 0.9) 150deg,
+      rgba(60, 60, 90, 0.9) 153deg,
+      rgba(30, 30, 50, 0.9) 156deg,
+      rgba(60, 60, 90, 0.9) 159deg,
+      rgba(30, 30, 50, 0.9) 162deg,
+      rgba(60, 60, 90, 0.9) 165deg,
+      rgba(30, 30, 50, 0.9) 168deg,
+      rgba(60, 60, 90, 0.9) 171deg,
+      rgba(30, 30, 50, 0.9) 174deg,
+      rgba(60, 60, 90, 0.9) 177deg,
+      rgba(30, 30, 50, 0.9) 180deg,
+      rgba(60, 60, 90, 0.9) 183deg,
+      rgba(30, 30, 50, 0.9) 186deg,
+      rgba(60, 60, 90, 0.9) 189deg,
+      rgba(30, 30, 50, 0.9) 192deg,
+      rgba(60, 60, 90, 0.9) 195deg,
+      rgba(30, 30, 50, 0.9) 198deg,
+      rgba(60, 60, 90, 0.9) 201deg,
+      rgba(30, 30, 50, 0.9) 204deg,
+      rgba(60, 60, 90, 0.9) 207deg,
+      rgba(30, 30, 50, 0.9) 210deg,
+      rgba(60, 60, 90, 0.9) 213deg,
+      rgba(30, 30, 50, 0.9) 216deg,
+      rgba(60, 60, 90, 0.9) 219deg,
+      rgba(30, 30, 50, 0.9) 222deg,
+      rgba(60, 60, 90, 0.9) 225deg,
+      rgba(30, 30, 50, 0.9) 228deg,
+      rgba(60, 60, 90, 0.9) 231deg,
+      rgba(30, 30, 50, 0.9) 234deg,
+      rgba(60, 60, 90, 0.9) 237deg,
+      rgba(30, 30, 50, 0.9) 240deg,
+      rgba(60, 60, 90, 0.9) 243deg,
+      rgba(30, 30, 50, 0.9) 246deg,
+      rgba(60, 60, 90, 0.9) 249deg,
+      rgba(30, 30, 50, 0.9) 252deg,
+      rgba(60, 60, 90, 0.9) 255deg,
+      rgba(30, 30, 50, 0.9) 258deg,
+      rgba(60, 60, 90, 0.9) 261deg,
+      rgba(30, 30, 50, 0.9) 264deg,
+      rgba(60, 60, 90, 0.9) 267deg,
+      rgba(30, 30, 50, 0.9) 270deg,
+      rgba(60, 60, 90, 0.9) 273deg,
+      rgba(30, 30, 50, 0.9) 276deg,
+      rgba(60, 60, 90, 0.9) 279deg,
+      rgba(30, 30, 50, 0.9) 282deg,
+      rgba(60, 60, 90, 0.9) 285deg,
+      rgba(30, 30, 50, 0.9) 288deg,
+      rgba(60, 60, 90, 0.9) 291deg,
+      rgba(30, 30, 50, 0.9) 294deg,
+      rgba(60, 60, 90, 0.9) 297deg,
+      rgba(30, 30, 50, 0.9) 300deg,
+      rgba(60, 60, 90, 0.9) 303deg,
+      rgba(30, 30, 50, 0.9) 306deg,
+      rgba(60, 60, 90, 0.9) 309deg,
+      rgba(30, 30, 50, 0.9) 312deg,
+      rgba(60, 60, 90, 0.9) 315deg,
+      rgba(30, 30, 50, 0.9) 318deg,
+      rgba(60, 60, 90, 0.9) 321deg,
+      rgba(30, 30, 50, 0.9) 324deg,
+      rgba(60, 60, 90, 0.9) 327deg,
+      rgba(30, 30, 50, 0.9) 330deg,
+      rgba(60, 60, 90, 0.9) 333deg,
+      rgba(30, 30, 50, 0.9) 336deg,
+      rgba(60, 60, 90, 0.9) 339deg,
+      rgba(30, 30, 50, 0.9) 342deg,
+      rgba(60, 60, 90, 0.9) 345deg,
+      rgba(30, 30, 50, 0.9) 348deg,
+      rgba(60, 60, 90, 0.9) 351deg,
+      rgba(30, 30, 50, 0.9) 354deg,
+      rgba(60, 60, 90, 0.9) 357deg,
+      rgba(30, 30, 50, 0.9) 360deg
+    );
+  border: 4px solid rgba(20, 20, 30, 0.8);
   box-shadow: 
-    0 15px 35px rgba(0, 0, 0, 0.4),
-    inset 0 2px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+    0 15px 35px rgba(0, 0, 0, 0.6),
+    inset 0 0 30px rgba(0, 0, 0, 0.4),
+    inset 0 2px 0 rgba(255, 255, 255, 0.05);
 }
 
 .jog-wheel-inner {
@@ -196,21 +320,26 @@
 }
 
 .jog-wheel-center {
-  width: 80px;
-  height: 80px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: rgba(20, 20, 35, 0.95);
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.1);
   box-shadow: 
-    0 8px 20px rgba(99, 102, 241, 0.3),
-    inset 0 2px 0 rgba(255, 255, 255, 0.2);
+    0 8px 20px rgba(0, 0, 0, 0.6),
+    inset 0 0 15px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .jog-wheel-logo {
-  font-size: 2rem;
-  color: white;
+  width: 20px;
+  height: 20px;
+  background: #000000;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .jog-wheel-markings {
@@ -602,6 +731,431 @@
   border: 0;
 }
 
+/* Pioneer Style Center Mixer */
+.center-mixer.pioneer-style {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  min-width: 300px;
+  background: rgba(15, 15, 35, 0.85);
+  backdrop-filter: blur(20px);
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.mixer-channels-row {
+  display: flex;
+  flex-direction: row;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.mixer-channel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  min-width: 80px;
+}
+
+.eq-knobs-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.eq-knob-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.pioneer-knob {
+  width: 50px;
+  height: 50px;
+  background: rgba(30, 30, 60, 0.8);
+  backdrop-filter: blur(10px);
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  cursor: pointer;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.pioneer-knob:hover {
+  background: rgba(40, 40, 80, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 
+    0 6px 16px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.pioneer-knob .knob-dial {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  transform-origin: center bottom;
+  transform: translate(-50%, -100%);
+  border-radius: 2px;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.5);
+}
+
+.knob-label {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.knob-sublabel {
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 400;
+  text-align: center;
+  text-transform: uppercase;
+  margin-top: -2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.cue-button-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pioneer-cue-button {
+  background: rgba(80, 80, 120, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: bold;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.pioneer-cue-button:hover {
+  background: rgba(100, 100, 160, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 6px 16px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.pioneer-cue-button:active {
+  transform: translateY(0);
+  background: rgba(120, 120, 200, 0.9);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.cue-text {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.channel-number {
+  font-size: 1.2rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: bold;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.channel-fader-container {
+  position: relative;
+  height: 250px;
+  width: 60px;
+  background: rgba(15, 15, 15, 0.9);
+  border-radius: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.channel-fader-track {
+  position: relative;
+  width: 12px;
+  height: 100%;
+  background: linear-gradient(to bottom, #1a1a1a, #0a0a0a);
+  border-radius: 6px;
+  margin: 0 auto;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.channel-fader-handle {
+  position: absolute;
+  width: 40px;
+  height: 25px;
+  background: linear-gradient(135deg, #4a4a4a, #2a2a2a);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 
+    0 3px 6px rgba(0, 0, 0, 0.4),
+    inset 0 1px 2px rgba(255, 255, 255, 0.1);
+}
+
+.channel-fader-handle:hover {
+  background: linear-gradient(135deg, #5a5a5a, #3a3a3a);
+  box-shadow: 
+    0 4px 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.2);
+}
+
+.fader-markings {
+  position: absolute;
+  left: -25px;
+  right: -25px;
+  top: 0;
+  height: 100%;
+}
+
+.fader-mark {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  opacity: 0.8;
+  border-radius: 1px;
+}
+
+.fader-mark:nth-child(1),
+.fader-mark:nth-child(11) {
+  background: rgba(255, 255, 255, 0.3);
+  opacity: 1;
+  height: 3px;
+}
+
+.fader-mark:nth-child(6) {
+  background: rgba(255, 255, 255, 0.3);
+  opacity: 0.9;
+  height: 2.5px;
+}
+
+.crossfader-section-pioneer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+
+.crossfader-container {
+  position: relative;
+  width: 200px;
+  height: 40px;
+}
+
+.crossfader-track-pioneer {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  background: linear-gradient(to right, #333, #111, #333);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.crossfader-handle-pioneer {
+  position: absolute;
+  width: 30px;
+  height: 20px;
+  background: linear-gradient(135deg, #666, #333);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.crossfader-handle-pioneer:hover {
+  background: linear-gradient(135deg, #777, #444);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.crossfader-markings {
+  position: absolute;
+  bottom: -15px;
+  width: 100%;
+  height: 10px;
+}
+
+.crossfader-mark {
+  position: absolute;
+  width: 1px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.3);
+  opacity: 0.6;
+}
+
+/* Jog Wheel Container */
+.jog-wheel-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* Jog Wheel Text */
+.jog-wheel-text {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  padding: 0.75rem 1.5rem;
+  background: rgba(15, 15, 35, 0.85);
+  backdrop-filter: blur(15px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 6px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  z-index: 10;
+}
+
+/* Track Bar */
+.track-bar-container {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+.track-bar {
+  display: flex;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  padding: 1rem;
+  gap: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.track-info.left {
+  text-align: left;
+}
+
+.track-info.right {
+  text-align: right;
+}
+
+.track-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-artist {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-waveform {
+  flex: 2;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  padding: 4px;
+  display: flex;
+  align-items: end;
+}
+
+.waveform-bars {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  gap: 1px;
+}
+
+.waveform-bar {
+  background: rgba(255, 255, 255, 0.8);
+  width: 2px;
+  min-height: 2px;
+  border-radius: 1px;
+  transition: all 0.3s ease;
+}
+
+.track-divider {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 120px;
+  text-align: center;
+  padding: 0 1rem;
+}
+
+.team-names {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.team-title {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+}
+
+.team-members {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+}
+
 /* Reduced Motion */
 @media (prefers-reduced-motion: reduce) {
   .modern-jog-wheel {
@@ -613,6 +1167,10 @@
   }
   
   .knob-dial {
+    transition: none;
+  }
+  
+  .waveform-bar {
     transition: none;
   }
 }
