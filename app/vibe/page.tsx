@@ -1077,23 +1077,15 @@ function VibeCheckPageInner() {
                     {eventVibeData.vibeDescription}
                   </p>
                   
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">BPM:</span>
-                      <span className="ml-2 font-medium">{eventVibeData.suggestedBPM}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 dark:text-gray-400">Volume:</span>
-                      <span className="ml-2 font-medium">{Math.round(eventVibeData.suggestedVolume * 100)}%</span>
-                    </div>
+                  <div className="space-y-2 text-sm">
                     {eventVibeData.eventDate && (
-                      <div className="col-span-2">
+                      <div>
                         <span className="text-gray-500 dark:text-gray-400">Date:</span>
                         <span className="ml-2 font-medium">{eventVibeData.eventDate}</span>
                       </div>
                     )}
                     {eventVibeData.eventLocation && (
-                      <div className="col-span-2">
+                      <div>
                         <span className="text-gray-500 dark:text-gray-400">Location:</span>
                         <span className="ml-2 font-medium">{eventVibeData.eventLocation}</span>
                       </div>

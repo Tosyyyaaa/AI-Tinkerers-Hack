@@ -71,7 +71,9 @@ export async function POST(request: NextRequest) {
 
     console.log('🔍 Extracting event data from URL:', url);
 
-    const prompt = `Analyze the event information from the provided URL and extract the following details in JSON format:
+    const prompt = `IMPORTANT: Return ONLY a JSON object, no explanations or additional text.
+
+Analyze the event information from the provided URL and return this exact JSON structure:
 
 {
   "eventTitle": "Name of the event",
@@ -87,7 +89,7 @@ export async function POST(request: NextRequest) {
   "expectedCrowd": "Description of expected attendees/crowd"
 }
 
-Guidelines for vibe classification:
+Vibe classification rules:
 - "party": High-energy events, clubs, festivals, celebrations
 - "chill": Relaxed events, casual meetups, lounges, coffee shops
 - "focused": Work events, conferences, workshops, study sessions
@@ -97,10 +99,10 @@ Guidelines for vibe classification:
 - "relaxed": Spa events, meditation, wellness activities
 - "bored": Low-energy or potentially uninteresting events
 
-For suggestedBPM: 80-100 (chill/relaxed), 100-120 (focused/intimate), 120-140 (energetic/party), 140+ (high-energy party)
-For suggestedVolume: 0.4-0.6 (intimate/focused), 0.6-0.8 (normal), 0.8-1.0 (party/energetic)
+BPM ranges: 80-100 (chill/relaxed), 100-120 (focused/intimate), 120-140 (energetic/party), 140+ (high-energy party)
+Volume ranges: 0.4-0.6 (intimate/focused), 0.6-0.8 (normal), 0.8-1.0 (party/energetic)
 
-Please provide ONLY the JSON response, no additional text.`;
+RESPOND WITH ONLY THE JSON OBJECT - NO OTHER TEXT.`;
 
     const requestBody = {
       contents: [
@@ -156,10 +158,21 @@ Please provide ONLY the JSON response, no additional text.`;
     let eventData: EventVibeData;
     try {
       // Clean up the response text (remove markdown code blocks if present)
-      const cleanedText = responseText
+      let cleanedText = responseText
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
+      
+      // Try to extract JSON if the response contains explanatory text
+      const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        cleanedText = jsonMatch[0];
+      }
+      
+      // If the response doesn't start with {, it's likely explanatory text
+      if (!cleanedText.startsWith('{')) {
+        throw new Error('Response does not contain valid JSON structure');
+      }
       
       eventData = JSON.parse(cleanedText);
     } catch (parseError) {
