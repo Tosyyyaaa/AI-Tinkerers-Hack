@@ -21,6 +21,19 @@ export type RoomStats = {
   spectralCentroid: number; // Hz, brightness of sound
 };
 
+export type RoomStatsSample = {
+  timestamp: number;
+  stats: RoomStats;
+};
+
+export type RoomStatsWindow = {
+  start: number;
+  end: number;
+  sampleCount: number;
+  averagedStats: RoomStats;
+  latestStats: RoomStats;
+};
+
 export type VibeDecision = {
   vibeLabel: "party" | "chill" | "focused" | "bored";
   suggestedBPM: number;
@@ -29,12 +42,76 @@ export type VibeDecision = {
   action?: "keep" | "skip" | "drop";
 };
 
+export type VocalsPreference = "off" | "low" | "lead";
+
+export type CreativeMusicAxes = {
+  energy: number; // 0..1 perceived momentum
+  warmth: number; // 0..1 timbral warmth (higher = warmer)
+  formality: number; // 0..1 where 1 is highly formal/refined
+  focus: number; // 0..1 where 1 is highly focus-friendly
+  acousticRatio: number; // 0..1 proportion of acoustic instrumentation
+  percussionIntensity: number; // 0..1 drum presence
+  dynamics: number; // 0..1 dynamic contrast target
+};
+
+export type CreativeMusicBrief = CreativeMusicAxes & {
+  style: string;
+  vibeLabel: VibeDecision['vibeLabel'];
+  targetBpm: number;
+  vocalsAllowed: VocalsPreference;
+  instrumentationHints: string[];
+  moodKeywords: string[];
+  environmentSummary: string;
+  weatherSummary?: string;
+  description: string;
+  transition?: {
+    previousStyle?: string;
+    smoothness: number; // 0..1 (higher = smoother change)
+  };
+};
+
 export type VibeCheckState = {
   isActive: boolean;
   hasPermission: boolean;
   error: string | null;
   stats: RoomStats | null;
   decision: VibeDecision | null;
+};
+
+export type WeatherSnapshot = {
+  location?: string;
+  description?: string;
+  temperature?: number;
+  feelsLike?: number;
+  humidity?: number;
+  uvIndex?: number;
+  cloudiness?: number;
+  timestamp?: number;
+};
+
+export type VibePromptMetadata = {
+  style?: string;
+  description?: string;
+  vibeLabel?: VibeDecision['vibeLabel'];
+  weatherSummary?: string;
+  decisionSummary?: string;
+  targetBpm?: number;
+  energy?: number;
+  warmth?: number;
+  formality?: number;
+  focus?: number;
+  acousticRatio?: number;
+  percussionIntensity?: number;
+  dynamics?: number;
+  vocalsAllowed?: VocalsPreference;
+  instrumentationHints?: string[];
+  moodKeywords?: string[];
+  environmentSummary?: string;
+  transition?: {
+    previousStyle?: string;
+    smoothness: number;
+  };
+  briefVersion?: string;
 };
 
 // MCP (Model Context Protocol) tool interfaces
@@ -65,15 +142,19 @@ export type TTSResponse = {
 // Agno agent communication types
 export type AgnoVibeRequest = {
   stats: RoomStats;
+  statsWindow?: RoomStatsWindow;
+  decision?: VibeDecision;
+  weather?: WeatherSnapshot;
   context?: {
     timestamp: number;
     sessionId?: string;
     previousVibe?: string;
+    previousStyle?: string;
+    styleLockExpiresAt?: number;
+    briefVersion?: string;
   };
-  promptMetadata?: {
-    style?: string;
-    description?: string;
-  };
+  promptMetadata?: VibePromptMetadata;
+  brief?: CreativeMusicBrief;
 };
 
 export type AgnoMusicResponse = {
@@ -94,4 +175,10 @@ export type AgnoMusicResponse = {
   };
   error?: string;
   vibeDescription?: string;
+  agentAvailable?: boolean;
+  fallback?: {
+    strategy: 'local_playlist';
+    reason: string;
+    suggestedStyle?: string;
+  };
 };

@@ -50,54 +50,99 @@ function analyzeVibeFromStats(stats: RoomStats): VibeDecision {
 }
 
 // Validate and sanitise input stats
+function clamp(value: number, min: number, max: number, fallback: number): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return fallback;
+  }
+  return Math.min(max, Math.max(min, value));
+}
+
 function validateStats(data: any): RoomStats | null {
   if (!data || typeof data !== 'object') {
     return null;
   }
 
-  const {
-    avgBrightness, colorTempK, motionLevel, motionZones, crowdDensity, styleIndicator, lightingPattern,
-    audioVolume, audioEnergy, noiseLevel, speechProbability, pitch, spectralCentroid
-  } = data;
+  const { avgBrightness, colorTempK, motionLevel } = data;
 
-  // Type and range validation for visual metrics
   if (
-    typeof crowdDensity !== 'number' || crowdDensity < 0 || crowdDensity > 1 ||
-    typeof avgBrightness !== 'number' || avgBrightness < 0 || avgBrightness > 1 ||
-    typeof colorTempK !== 'number' || colorTempK < 1000 || colorTempK > 10000 ||
-    typeof motionLevel !== 'number' || motionLevel < 0 || motionLevel > 1
+    typeof avgBrightness !== 'number' ||
+    typeof colorTempK !== 'number' ||
+    typeof motionLevel !== 'number'
   ) {
     return null;
   }
 
-  // Audio metrics validation (optional - default to 0 if missing)
-  const validAudioVolume = typeof audioVolume === 'number' ? Math.max(0, Math.min(1, audioVolume)) : 0;
-  const validAudioEnergy = typeof audioEnergy === 'number' ? Math.max(0, Math.min(1, audioEnergy)) : 0;
-  const validNoiseLevel = typeof noiseLevel === 'number' ? Math.max(0, Math.min(1, noiseLevel)) : 0;
-  const validSpeechProbability = typeof speechProbability === 'number' ? Math.max(0, Math.min(1, speechProbability)) : 0;
-  const validPitch = typeof pitch === 'number' ? Math.max(0, Math.min(8000, pitch)) : 0;
-  const validSpectralCentroid = typeof spectralCentroid === 'number' ? Math.max(0, Math.min(8000, spectralCentroid)) : 0;
+  const sanitisedAvgBrightness = clamp(avgBrightness, 0, 1, 0.5);
+  const sanitisedColorTemp = clamp(colorTempK, 1000, 10000, 4500);
+  const sanitisedMotionLevel = clamp(motionLevel, 0, 1, 0);
 
-  // Clamp values to safe ranges and provide defaults for new fields
-  return {
-    avgBrightness: Math.max(0, Math.min(1, avgBrightness)),
-    colorTempK: Math.max(2000, Math.min(8000, colorTempK)),
-    motionLevel: Math.max(0, Math.min(1, motionLevel)),
-    // New style detection metrics - provide defaults
-    motionZones: [0, 0, 0, 0, 0], // Default to no motion in zones
-    crowdDensity: Math.max(0, Math.min(1, motionLevel * 0.5)), // Estimate from motion
-    styleIndicator: 'mixed' as const,
-    dominantColors: [],
-    colorVariance: 0.5,
-    lightingPattern: avgBrightness > 0.5 ? 'steady' as const : 'dim' as const,
-    // Audio metrics
-    audioVolume: validAudioVolume,
-    audioEnergy: validAudioEnergy,
-    noiseLevel: validNoiseLevel,
-    speechProbability: validSpeechProbability,
-    pitch: validPitch,
-    spectralCentroid: validSpectralCentroid,
+  const rawMotionZones: number[] | undefined = Array.isArray(data.motionZones) ? data.motionZones : undefined;
+  const motionZones = (rawMotionZones && rawMotionZones.length > 0
+    ? rawMotionZones
+    : new Array(5).fill(sanitisedMotionLevel)
+  )
+    .slice(0, 5)
+    .map((zone) => clamp(zone, 0, 1, 0));
+
+  while (motionZones.length < 5) {
+    motionZones.push(0);
+  }
+
+  const crowdDensitySource = typeof data.crowdDensity === 'number'
+    ? data.crowdDensity
+    : motionZones.reduce((sum, zone) => sum + zone, 0) / motionZones.length;
+  const crowdDensity = clamp(crowdDensitySource, 0, 1, 0);
+
+  const allowedStyles = new Set(['formal', 'casual', 'party', 'professional', 'mixed']);
+  const styleIndicator = allowedStyles.has(data.styleIndicator)
+    ? data.styleIndicator
+    : 'mixed';
+
+  const dominantColors = Array.isArray(data.dominantColors)
+    ? data.dominantColors.map((color) => String(color)).slice(0, 6)
+    : [];
+
+  const colorVariance = clamp(typeof data.colorVariance === 'number' ? data.colorVariance : 0.5, 0, 1, 0.5);
+
+  const allowedLighting = new Set(['steady', 'dynamic', 'strobe', 'dim']);
+  const lightingPattern = allowedLighting.has(data.lightingPattern)
+    ? data.lightingPattern
+    : sanitisedAvgBrightness > 0.5 ? 'steady' : 'dim';
+
+  const audioVolume = clamp(data.audioVolume, 0, 1, 0);
+  const audioEnergy = clamp(data.audioEnergy, 0, 1, 0);
+  const noiseLevel = clamp(data.noiseLevel, 0, 1, 0);
+  const speechProbability = clamp(data.speechProbability, 0, 1, 0);
+  const pitch = clamp(data.pitch, 0, 8000, 0);
+  const spectralCentroid = clamp(data.spectralCentroid, 0, 8000, 0);
+
+  const sanitised: RoomStats = {
+    avgBrightness: sanitisedAvgBrightness,
+    colorTempK: sanitisedColorTemp,
+    motionLevel: sanitisedMotionLevel,
+    motionZones,
+    crowdDensity,
+    styleIndicator,
+    dominantColors,
+    colorVariance,
+    lightingPattern,
+    audioVolume,
+    audioEnergy,
+    noiseLevel,
+    speechProbability,
+    pitch,
+    spectralCentroid,
   };
+
+  if (typeof data.faces === 'number') {
+    sanitised.faces = clamp(data.faces, 0, 50, 0);
+  }
+
+  if (typeof data.smiles === 'number') {
+    sanitised.smiles = clamp(data.smiles, 0, 50, 0);
+  }
+
+  return sanitised;
 }
 
 export async function POST(request: NextRequest) {

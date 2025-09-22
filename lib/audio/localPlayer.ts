@@ -49,6 +49,7 @@ class LocalAudioPlayer {
   private callbacks: LocalPlayerCallbacks = {};
   private volumeRampTimeout: NodeJS.Timeout | null = null;
   private updateInterval: NodeJS.Timeout | null = null;
+  private lastErrorMessage: string | null = null;
 
   constructor(callbacks: LocalPlayerCallbacks = {}) {
     this.callbacks = callbacks;
@@ -210,6 +211,7 @@ class LocalAudioPlayer {
 
     this.state.playlist = [...tracks];
     this.state.currentIndex = -1;
+    this.lastErrorMessage = null;
     
     if (tracks.length > 0) {
       return this.loadTrack(0);
@@ -240,6 +242,7 @@ class LocalAudioPlayer {
       this.audioElement.load();
       this.state.currentTrack = track;
       this.state.currentIndex = index;
+      this.lastErrorMessage = null;
       
       this.callbacks.onTrackChange?.(track);
       
@@ -264,10 +267,16 @@ class LocalAudioPlayer {
       }
 
       await this.audioElement.play();
+      this.lastErrorMessage = null;
       return true;
     } catch (error) {
       console.error('Failed to play audio:', error);
-      this.callbacks.onError?.('Failed to play audio');
+      let message = 'Failed to play audio';
+      if (error instanceof DOMException && error.name === 'NotAllowedError') {
+        message = 'Playback blocked until you interact with the page. Press Play to start the track.';
+      }
+      this.lastErrorMessage = message;
+      this.callbacks.onError?.(message);
       return false;
     }
   }
@@ -280,6 +289,7 @@ class LocalAudioPlayer {
 
     try {
       this.audioElement.pause();
+      this.lastErrorMessage = null;
       return true;
     } catch (error) {
       console.error('Failed to pause audio:', error);
@@ -293,6 +303,10 @@ class LocalAudioPlayer {
     } else {
       return await this.play();
     }
+  }
+
+  getLastErrorMessage(): string | null {
+    return this.lastErrorMessage;
   }
 
   setVolume(volume: number): boolean {

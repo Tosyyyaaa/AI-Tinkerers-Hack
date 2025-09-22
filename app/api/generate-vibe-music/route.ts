@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { readFile } from 'node:fs/promises';
 import { extname } from 'node:path';
 import { AgnoVibeRequest, AgnoMusicResponse } from '@/lib/types/vibe';
+import { buildCreativeMusicBrief, BRIEF_VERSION } from '@/lib/vibe/musicBrief';
 
 export const runtime = 'nodejs';
 
@@ -31,88 +32,6 @@ function inferMimeType(filePath?: string): string {
   }
 }
 
-// Map vibe characteristics to music style and description
-function generateMusicPrompt(request: AgnoVibeRequest): { style: string; description: string } {
-  const stats = request.stats;
-  const {
-    styleIndicator,
-    crowdDensity,
-    motionLevel,
-    lightingPattern,
-    dominantColors,
-    colorVariance,
-    audioEnergy,
-    avgBrightness
-  } = stats;
-
-  // Determine music style based on detected environment
-  let style = 'ambient'; // default
-  let energy = 'medium';
-  let mood = 'neutral';
-
-  // Style mapping logic
-  if (styleIndicator === 'party' || (crowdDensity > 0.6 && motionLevel > 0.5)) {
-    style = 'upbeat';
-    energy = 'high';
-    mood = 'energetic';
-  } else if (styleIndicator === 'formal' || styleIndicator === 'professional') {
-    style = 'classical';
-    energy = 'low';
-    mood = 'sophisticated';
-  } else if (lightingPattern === 'dim' || avgBrightness < 0.3) {
-    style = 'chill';
-    energy = 'low';
-    mood = 'relaxed';
-  } else if (motionLevel > 0.4 && audioEnergy > 0.3) {
-    style = 'dynamic';
-    energy = 'medium-high';
-    mood = 'active';
-  } else if (styleIndicator === 'casual' && colorVariance > 0.4) {
-    style = 'acoustic';
-    energy = 'medium';
-    mood = 'friendly';
-  } else if (crowdDensity < 0.2 && motionLevel < 0.2) {
-    // BORED scenario: low activity detected, generate energetic music to boost the mood
-    style = 'upbeat';
-    energy = 'high';
-    mood = 'energetic boost';
-  } else if (audioEnergy < 0.2 && motionLevel < 0.3) {
-    // Additional BORED scenario: low audio and motion, need energy boost
-    style = 'dynamic';
-    energy = 'high';
-    mood = 'energetic boost';
-  }
-
-  // Enhance style based on lighting and colors
-  if (lightingPattern === 'strobe' || lightingPattern === 'dynamic') {
-    if (style === 'upbeat') style = 'electronic';
-    energy = 'high';
-  }
-
-  // Generate description based on analysis
-  const colorDescription = dominantColors.length > 0 ?
-    `with ${dominantColors.length > 2 ? 'vibrant and varied' : 'harmonious'} color palette` :
-    'with natural lighting';
-
-  const crowdDescription = crowdDensity > 0.6 ? 'bustling crowd energy' :
-                          crowdDensity > 0.3 ? 'moderate social activity' :
-                          'intimate and personal atmosphere';
-
-  const lightingDescription = lightingPattern === 'strobe' ? 'dynamic flashing lights' :
-                             lightingPattern === 'dynamic' ? 'shifting ambient lighting' :
-                             lightingPattern === 'dim' ? 'soft dim lighting' :
-                             'steady bright lighting';
-
-  let description = `${energy} energy ${style} music for a ${mood} environment with ${crowdDescription}, ${lightingDescription}, and ${colorDescription}. Motion level: ${Math.round(motionLevel * 100)}%, Audio energy: ${Math.round(audioEnergy * 100)}%`;
-
-  // Special description for bored/low activity scenarios
-  if (mood === 'energetic boost') {
-    description = `${energy} energy ${style} music to energize a quiet environment and boost the mood. Low activity detected (motion: ${Math.round(motionLevel * 100)}%, crowd: ${Math.round(crowdDensity * 100)}%) - generating uplifting music to create excitement and engagement`;
-  }
-
-  return { style, description };
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body: AgnoVibeRequest = await request.json();
@@ -124,7 +43,17 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const { style: promptStyle, description: promptDescription } = generateMusicPrompt(body);
+    const { brief, promptMetadata } = buildCreativeMusicBrief(body);
+
+    const enrichedRequest: AgnoVibeRequest = {
+      ...body,
+      context: {
+        ...body.context,
+        briefVersion: BRIEF_VERSION,
+      },
+      promptMetadata,
+      brief,
+    };
 
     let agentData: any;
     let agentAvailable = true;
@@ -136,18 +65,7 @@ export async function POST(request: NextRequest) {
           headers: {
               'Content-Type': 'application/json',
           },
-          body: JSON.stringify(
-              {
-                  ...body,
-                  stats: {
-                      ...body.stats,
-                  },
-                  promptMetadata: {
-                      style: promptStyle,
-                      description: promptDescription,
-                  },
-              }
-          ),
+          body: JSON.stringify(enrichedRequest),
           signal: AbortSignal.timeout(180000) // 3 minute timeout for music generation
       });
 
@@ -163,8 +81,13 @@ export async function POST(request: NextRequest) {
       // Provide fallback response when agent is unavailable
       agentData = {
         success: true,
-        vibeDescription: `Music agent offline. Using ${promptStyle} style for current vibe.`,
-        music: null // No generated music when agent is offline
+        vibeDescription: `Music agent offline. Using ${brief.style} style for current vibe.`,
+        music: null, // No generated music when agent is offline
+        fallback: {
+          strategy: 'local_playlist',
+          reason: 'agent_offline',
+          suggestedStyle: brief.style,
+        },
       };
     }
 
@@ -174,7 +97,8 @@ export async function POST(request: NextRequest) {
       music: agentData.music ? { ...agentData.music } : undefined,
       vibeDescription: agentData.vibeDescription || (agentAvailable ? 'Music generation completed' : 'Music agent offline - using fallback playlist'),
       error: agentData.error,
-      agentAvailable
+      agentAvailable,
+      fallback: agentData.fallback,
     };
 
     // Attach playable audio data when available
@@ -197,9 +121,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (response.music) {
-      response.music.style = response.music.style || promptStyle;
+      response.music.style = response.music.style || brief.style;
       const sanitizedSummary = agentData.music?.displaySummary
-        || `AI-generated ${response.music.style || promptStyle} track tailored to the detected vibe.`;
+        || `AI-generated ${response.music.style || brief.style} track tailored to the detected vibe.`;
 
       response.music.description = sanitizedSummary;
       response.music.source = 'elevenlabs';

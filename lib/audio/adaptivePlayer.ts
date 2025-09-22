@@ -188,7 +188,24 @@ class AdaptivePlayer {
 
       const played = await this.localPlayer.play();
       if (!played) {
-        throw new Error('Failed to start playback for generated track');
+        const message = this.localPlayer.getLastErrorMessage()
+          ?? 'Playback did not start automatically. Press Play to listen.';
+        console.warn('Generated track loaded but autoplay was blocked:', message);
+
+        this.state.isLocalReady = true;
+        this.state.activePlayer = 'local';
+        this.state.isPlaying = false;
+        this.state.currentTrack = track;
+
+        if (previousPlayer !== 'local') {
+          this.callbacks.onPlayerChange?.('local');
+        }
+
+        this.callbacks.onTrackChange?.(track);
+        this.callbacks.onPlayStateChange?.(false);
+        this.callbacks.onError?.(message);
+
+        return false;
       }
 
       this.state.isLocalReady = true;

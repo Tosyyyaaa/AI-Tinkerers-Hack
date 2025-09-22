@@ -68,9 +68,89 @@ npm run dev
 # http://localhost:3000/vibe
 ```
 
-When the frontend has fresh sensor statistics it POSTs to
-`/api/generate-vibe-music`. The API packages the payload (including optional
-prompt metadata) and forwards it to the AgentOS backend.
+When the frontend completes a vibe check it POSTs to
+`/api/generate-vibe-music`. The API now forwards:
+
+- The **raw sensor snapshot** (`RoomStats`) captured by `useVibeSensors`
+- The **interpreted vibe decision** (label/BPM/volume/tip)
+- An optional **weather snapshot** (location + conditions)
+- A derived **creative brief** (style, tempo target, energy/warmth/formality axes, vocals policy)
+
+All of that context is merged into a creative brief so the AgentOS backend and
+ElevenLabs hear the same story the UI shows, and the fallback playlist knows
+which vibe to hold when the API declines to generate audio.
+
+### Vibe Payload Contract
+
+```jsonc
+{
+  "stats": { /* RoomStats: audio + visual metrics */ },
+  "decision": {
+    "vibeLabel": "chill",
+    "suggestedBPM": 92,
+    "suggestedVolume": 0.62,
+    "spokenTip": "Chill vibes detected. Perfect for relaxation."
+  },
+  "weather": {
+    "location": "London, UK",
+    "description": "light rain",
+    "temperature": 17
+  },
+  "context": {
+    "timestamp": 1737532800000,
+    "sessionId": "vibe-check-session",
+    "previousVibe": "party",
+    "previousStyle": "upbeat",
+    "styleLockExpiresAt": 1737532860000
+  },
+  "promptMetadata": {
+    "style": "cozy",
+    "description": "Compose cozy music that feels intimate. Energy 42%.",
+    "vibeLabel": "chill",
+    "weatherSummary": "London, light rain, 17°C",
+    "targetBpm": 92,
+    "energy": 0.42,
+    "warmth": 0.78,
+    "formality": 0.35,
+    "focus": 0.56,
+    "vocalsAllowed": "off",
+    "instrumentationHints": ["warm piano", "brush kit"],
+    "briefVersion": "v1.0.0"
+  },
+  "brief": {
+    "style": "cozy",
+    "vibeLabel": "chill",
+    "targetBpm": 92,
+    "energy": 0.42,
+    "warmth": 0.78,
+    "formality": 0.35,
+    "focus": 0.56,
+    "acousticRatio": 0.71,
+    "percussionIntensity": 0.28,
+    "dynamics": 0.33,
+    "vocalsAllowed": "off",
+    "instrumentationHints": ["warm piano", "upright bass"],
+    "environmentSummary": "motion 24% | crowd 18% | lighting dim",
+    "weatherSummary": "London, light rain, 17°C",
+    "transition": { "previousStyle": "ambient", "smoothness": 0.9 }
+  }
+}
+```
+
+Downstream, `app/api/generate-vibe-music` keeps the brief as-is and forwards it
+to the AgentOS backend. If ElevenLabs declines to deliver audio the backend now
+returns `fallback` instructions so the frontend can keep a local playlist in
+sync with the same vibe axes.
+
+### Creative Brief Axes
+
+`lib/vibe/musicBrief.ts` produces the axes used across the stack:
+
+- `energy`, `warmth`, `formality`, `focus` — continuous controls derived from sensors
+- `acousticRatio`, `percussionIntensity`, `dynamics` — instrumentation & punch
+- `vocalsAllowed` — always `off` (instrumental-only policy)
+- `instrumentationHints`, `moodKeywords` — short descriptors surfaced to the agent
+- `transition.previousStyle` + a style lock timestamp keeps one vibe for at least a full track
 
 ### Key Frontend Modules
 

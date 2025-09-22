@@ -7,7 +7,14 @@ import { performVibeCheck } from '@/lib/vibe/interpretVibe';
 import { getLocalPlayer, DEFAULT_PLAYLIST, type AudioTrack, type LocalPlayerState } from '@/lib/audio/localPlayer';
 import { getAdaptivePlayer } from '@/lib/audio/adaptivePlayer';
 import { useWeather } from '@/lib/weather/useWeather';
-import { RoomStats, VibeDecision, VibeCheckState } from '@/lib/types/vibe';
+import {
+  RoomStats,
+  VibeDecision,
+  VibeCheckState,
+  AgnoMusicResponse,
+  RoomStatsSample,
+  RoomStatsWindow,
+} from '@/lib/types/vibe';
 
 // Client-side only wrapper to prevent hydration issues
 function ClientOnly({ children }: { children: React.ReactNode }) {
@@ -29,7 +36,8 @@ type GeneratedTrack = AudioTrack & {
   description?: string;
   duration?: number;
   createdAt: number;
-  source: 'elevenlabs';
+  source: 'elevenlabs' | 'fallback';
+  note?: string;
 };
 
 function formatSeconds(totalSeconds: number): string {
@@ -40,6 +48,157 @@ function formatSeconds(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = Math.max(0, Math.floor(totalSeconds % 60));
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+const MIN_STYLE_LOCK_MS = 60_000;
+const MIN_CAPTURE_DURATION_MS = 5_000;
+const METRICS_HISTORY_RETENTION_MS = 15_000;
+
+type StatsHistoryEntry = RoomStatsSample;
+
+function cloneRoomStats(stats: RoomStats): RoomStats {
+  return {
+    ...stats,
+    motionZones: [...stats.motionZones],
+    dominantColors: [...stats.dominantColors],
+  };
+}
+
+function getModeFromMap<T extends string>(counts: Map<T, number>, fallback: T): T {
+  if (counts.size === 0) {
+    return fallback;
+  }
+
+  let selected = fallback;
+  let highest = -1;
+
+  counts.forEach((count, value) => {
+    if (count > highest) {
+      selected = value;
+      highest = count;
+    }
+  });
+
+  return selected;
+}
+
+function computeAveragedStats(samples: RoomStats[]): RoomStats {
+  if (samples.length === 0) {
+    throw new Error('Cannot compute average of empty samples');
+  }
+
+  const latest = samples[samples.length - 1];
+  const count = samples.length;
+
+  const totals = {
+    avgBrightness: 0,
+    colorTempK: 0,
+    motionLevel: 0,
+    crowdDensity: 0,
+    colorVariance: 0,
+    audioVolume: 0,
+    audioEnergy: 0,
+    noiseLevel: 0,
+    speechProbability: 0,
+    pitch: 0,
+    spectralCentroid: 0,
+  };
+
+  const motionZoneTotals = new Array(latest.motionZones.length).fill(0);
+  let facesSum = 0;
+  let facesSamples = 0;
+  let smilesSum = 0;
+  let smilesSamples = 0;
+  const styleCounts = new Map<RoomStats['styleIndicator'], number>();
+  const lightingCounts = new Map<RoomStats['lightingPattern'], number>();
+  const colorCounts = new Map<string, number>();
+  let dominantSampleSize = latest.dominantColors.length || 1;
+  let fallbackColors = [...latest.dominantColors];
+
+  for (const sample of samples) {
+    totals.avgBrightness += sample.avgBrightness;
+    totals.colorTempK += sample.colorTempK;
+    totals.motionLevel += sample.motionLevel;
+    totals.crowdDensity += sample.crowdDensity;
+    totals.colorVariance += sample.colorVariance;
+    totals.audioVolume += sample.audioVolume;
+    totals.audioEnergy += sample.audioEnergy;
+    totals.noiseLevel += sample.noiseLevel;
+    totals.speechProbability += sample.speechProbability;
+    totals.pitch += sample.pitch;
+    totals.spectralCentroid += sample.spectralCentroid;
+
+    for (let i = 0; i < motionZoneTotals.length; i += 1) {
+      const value = sample.motionZones[i] ?? sample.motionZones[sample.motionZones.length - 1] ?? 0;
+      motionZoneTotals[i] += value;
+    }
+
+    if (typeof sample.faces === 'number') {
+      facesSum += sample.faces;
+      facesSamples += 1;
+    }
+
+    if (typeof sample.smiles === 'number') {
+      smilesSum += sample.smiles;
+      smilesSamples += 1;
+    }
+
+    styleCounts.set(sample.styleIndicator, (styleCounts.get(sample.styleIndicator) ?? 0) + 1);
+    lightingCounts.set(sample.lightingPattern, (lightingCounts.get(sample.lightingPattern) ?? 0) + 1);
+
+    if (sample.dominantColors.length > 0) {
+      fallbackColors = sample.dominantColors;
+      dominantSampleSize = sample.dominantColors.length;
+      for (const color of sample.dominantColors) {
+        colorCounts.set(color, (colorCounts.get(color) ?? 0) + 1);
+      }
+    }
+  }
+
+  const averaged: RoomStats = {
+    avgBrightness: totals.avgBrightness / count,
+    colorTempK: totals.colorTempK / count,
+    motionLevel: totals.motionLevel / count,
+    faces: facesSamples > 0 ? Math.round(facesSum / facesSamples) : latest.faces,
+    smiles: smilesSamples > 0 ? Math.round(smilesSum / smilesSamples) : latest.smiles,
+    motionZones: motionZoneTotals.map(total => total / count),
+    crowdDensity: totals.crowdDensity / count,
+    styleIndicator: getModeFromMap(styleCounts, latest.styleIndicator),
+    dominantColors: colorCounts.size > 0
+      ? Array.from(colorCounts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, Math.max(1, dominantSampleSize))
+          .map(([color]) => color)
+      : [...fallbackColors],
+    colorVariance: totals.colorVariance / count,
+    lightingPattern: getModeFromMap(lightingCounts, latest.lightingPattern),
+    audioVolume: totals.audioVolume / count,
+    audioEnergy: totals.audioEnergy / count,
+    noiseLevel: totals.noiseLevel / count,
+    speechProbability: totals.speechProbability / count,
+    pitch: totals.pitch / count,
+    spectralCentroid: totals.spectralCentroid / count,
+  };
+
+  return averaged;
+}
+
+function cloneFallbackTrack(track: AudioTrack): AudioTrack {
+  return { ...track };
+}
+
+function selectFallbackTrack(style?: string, vibeLabel?: string): AudioTrack {
+  const key = (style || vibeLabel || '').toLowerCase();
+
+  if (/upbeat|electronic|dynamic|party|bored/.test(key)) {
+    return cloneFallbackTrack(DEFAULT_PLAYLIST[1]);
+  }
+
+  if (/focus|ambient|professional/.test(key)) {
+    return cloneFallbackTrack(DEFAULT_PLAYLIST[2]);
+  }
+
+  return cloneFallbackTrack(DEFAULT_PLAYLIST[0]);
 }
 
 function GeneratedTrackWidget({
@@ -70,8 +229,12 @@ function GeneratedTrackWidget({
           🎧 AI Track Player
         </h2>
         {track && (
-          <span className="text-xs px-2 py-1 bg-blue-100 text-blue-600 dark:bg-blue-900/60 dark:text-blue-200 rounded-full">
-            ElevenLabs
+          <span className={`text-xs px-2 py-1 rounded-full ${
+            track.source === 'fallback'
+              ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/60 dark:text-amber-200'
+              : 'bg-blue-100 text-blue-600 dark:bg-blue-900/60 dark:text-blue-200'
+          }`}>
+            {track.source === 'fallback' ? 'Fallback Playlist' : 'ElevenLabs'}
           </span>
         )}
       </div>
@@ -99,6 +262,11 @@ function GeneratedTrackWidget({
             {track.description && (
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
                 {track.description}
+              </p>
+            )}
+            {track.note && (
+              <p className="text-xs text-amber-600 dark:text-amber-300 mt-1 leading-relaxed">
+                {track.note}
               </p>
             )}
           </div>
@@ -369,6 +537,10 @@ function VibeCheckPageInner() {
   const generatedTrackUrls = useRef<string[]>([]);
   const latestStatsRef = useRef<RoomStats | null>(null);
   const lastVibeCheckRef = useRef<number>(0);
+  const styleLockRef = useRef<number>(0);
+  const lastStyleRef = useRef<string | null>(null);
+  const captureStartedAtRef = useRef<number | null>(null);
+  const captureMetricsHistoryRef = useRef<StatsHistoryEntry[]>([]);
 
 
   // Weather data
@@ -394,8 +566,22 @@ function VibeCheckPageInner() {
   // Update stats when sensors change
   useEffect(() => {
     if (sensorStats) {
-      latestStatsRef.current = sensorStats as RoomStats;
-      setStats(sensorStats as RoomStats);
+      const typedStats = sensorStats as RoomStats;
+      latestStatsRef.current = typedStats;
+      setStats(typedStats);
+
+      if (captureStartedAtRef.current !== null) {
+        const now = Date.now();
+        captureMetricsHistoryRef.current.push({
+          timestamp: now,
+          stats: cloneRoomStats(typedStats),
+        });
+
+        const cutoff = now - METRICS_HISTORY_RETENTION_MS;
+        captureMetricsHistoryRef.current = captureMetricsHistoryRef.current.filter(
+          entry => entry.timestamp >= cutoff,
+        );
+      }
     }
   }, [sensorStats]);
 
@@ -476,6 +662,68 @@ function VibeCheckPageInner() {
     return fallback;
   }, [stats]);
 
+  const applyFallbackPlayback = useCallback(
+    async (fallbackPlan: NonNullable<AgnoMusicResponse['fallback']>, decision: VibeDecision) => {
+      const now = Date.now();
+      const baseTrack = selectFallbackTrack(fallbackPlan.suggestedStyle, decision?.vibeLabel);
+
+      const fallbackTrack: GeneratedTrack = {
+        ...baseTrack,
+        id: `fallback-${baseTrack.id}-${now}`,
+        name: baseTrack.name ?? 'Fallback vibe track',
+        style: fallbackPlan.suggestedStyle ?? baseTrack.genre ?? decision.vibeLabel,
+        description: `Local fallback track engaged to maintain the ${fallbackPlan.suggestedStyle ?? decision.vibeLabel} atmosphere.`,
+        duration: undefined,
+        createdAt: now,
+        source: 'fallback',
+        note: `Instrumental fallback engaged: ${fallbackPlan.reason}`,
+      };
+
+      console.info('🎼 Engaging fallback playlist', {
+        reason: fallbackPlan.reason,
+        style: fallbackTrack.style,
+      });
+
+      let playbackStarted = false;
+      try {
+        const loaded = await localPlayer.current.loadPlaylist([fallbackTrack]);
+        if (!loaded) {
+          console.warn('Fallback track queued but local player refused to load');
+        } else {
+          playbackStarted = await localPlayer.current.play();
+          if (!playbackStarted) {
+            console.warn(
+              'Fallback track loaded but playback did not start automatically; user interaction may be required'
+            );
+          }
+        }
+      } catch (playError) {
+        console.warn('Failed to stage fallback track for playback:', playError);
+      } finally {
+        setLocalPlaybackState(localPlayer.current.getCurrentState());
+      }
+
+      generatedTrackUrls.current.forEach((url) => URL.revokeObjectURL(url));
+      generatedTrackUrls.current = [];
+
+      setLatestGeneratedTrack(fallbackTrack);
+      lastStyleRef.current = fallbackTrack.style || decision.vibeLabel;
+      styleLockRef.current = now + MIN_STYLE_LOCK_MS;
+      if (playbackStarted) {
+        setPlayerError(null);
+      }
+    },
+    [
+      localPlayer,
+      setLocalPlaybackState,
+      setLatestGeneratedTrack,
+      generatedTrackUrls,
+      lastStyleRef,
+      styleLockRef,
+      setPlayerError,
+    ]
+  );
+
   // Vibe check cycle
   const performVibeCheckCycle = useCallback(async (
     options?: { statsOverride?: RoomStats | null; force?: boolean }
@@ -484,24 +732,95 @@ function VibeCheckPageInner() {
       return;
     }
 
-    const now = Date.now();
-    if (!options?.force && now - lastVibeCheckRef.current < 3000) {
-      return;
-    }
-    lastVibeCheckRef.current = now;
+    const preWarmupNow = Date.now();
+    let lockActive = styleLockRef.current > preWarmupNow;
 
-    const activeStats = ensureStats(options?.statsOverride);
-    if (!activeStats) {
-      console.warn('Skipping vibe check: no stats available');
-      return;
+    if (!options?.force) {
+      const minimumGap = lockActive ? 8000 : 3000;
+      if (preWarmupNow - lastVibeCheckRef.current < minimumGap) {
+        return;
+      }
     }
 
     setIsProcessing(true);
-    setVibeState(prev => ({ ...prev, isAnalyzing: true, error: null }));
-    setPlayerError(null);
 
     try {
+      const captureStartedAt = captureStartedAtRef.current;
+      if (captureStartedAt) {
+        const elapsed = Date.now() - captureStartedAt;
+        if (elapsed < MIN_CAPTURE_DURATION_MS) {
+          const waitMs = MIN_CAPTURE_DURATION_MS - elapsed;
+          console.log('⏳ Waiting for vibe capture warmup before contacting AgentOS:', `${waitMs}ms remaining`);
+          await new Promise((resolve) => setTimeout(resolve, waitMs));
+        }
+      }
+
+      const analysisTimestamp = Date.now();
+      lockActive = styleLockRef.current > analysisTimestamp;
+
+      if (!options?.force) {
+        const minimumGap = lockActive ? 8000 : 3000;
+        if (analysisTimestamp - lastVibeCheckRef.current < minimumGap) {
+          return;
+        }
+      }
+
+      if (lockActive) {
+        console.log('🔒 Style lock active – holding current style until', new Date(styleLockRef.current).toLocaleTimeString());
+      }
+
+      const activeStats = ensureStats(options?.statsOverride);
+      if (!activeStats) {
+        console.warn('Skipping vibe check: no stats available');
+        return;
+      }
+
+      if (captureStartedAtRef.current !== null) {
+        captureMetricsHistoryRef.current.push({
+          timestamp: analysisTimestamp,
+          stats: cloneRoomStats(activeStats),
+        });
+      }
+
+      const windowEntries = captureMetricsHistoryRef.current.filter(
+        entry => analysisTimestamp - entry.timestamp <= MIN_CAPTURE_DURATION_MS,
+      );
+
+      const windowSamples = windowEntries.length > 0
+        ? windowEntries.map(entry => entry.stats)
+        : [cloneRoomStats(activeStats)];
+
+      const statsForAgent = computeAveragedStats(windowSamples);
+
+      const statsWindow: RoomStatsWindow | undefined = windowEntries.length > 0
+        ? {
+            start: windowEntries[0].timestamp,
+            end: windowEntries[windowEntries.length - 1].timestamp,
+            sampleCount: windowEntries.length,
+            averagedStats: cloneRoomStats(statsForAgent),
+            latestStats: cloneRoomStats(activeStats),
+          }
+        : undefined;
+
+      captureMetricsHistoryRef.current = captureMetricsHistoryRef.current.filter(
+        entry => analysisTimestamp - entry.timestamp <= METRICS_HISTORY_RETENTION_MS,
+      );
+
+      lastVibeCheckRef.current = analysisTimestamp;
+
+      setVibeState(prev => ({ ...prev, isAnalyzing: true, error: null }));
+      setPlayerError(null);
+
       console.log('🎯 Performing vibe check with stats:', activeStats);
+      if (statsWindow) {
+        console.log('📊 Aggregated stats window', {
+          sampleCount: statsWindow.sampleCount,
+          start: new Date(statsWindow.start).toISOString(),
+          end: new Date(statsWindow.end).toISOString(),
+          averaged: statsWindow.averagedStats,
+        });
+      }
+
       const vibeResult = await performVibeCheck(activeStats);
       const decision = vibeResult.decision;
 
@@ -514,15 +833,34 @@ function VibeCheckPageInner() {
         }
       }
 
+      const weatherSnapshot = weather
+        ? {
+            location: weather.location,
+            description: weather.description,
+            temperature: weather.temperature,
+            feelsLike: weather.feelsLike,
+            humidity: weather.humidity,
+            uvIndex: weather.uvIndex,
+            cloudiness: weather.cloudiness,
+            timestamp: weather.timestamp,
+          }
+        : undefined;
+
       // Call ElevenLabs agent via our API to generate music
       const agentResponse = await fetch('/api/generate-vibe-music', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          stats: activeStats,
+          stats: statsForAgent,
+          statsWindow,
+          decision,
+          weather: weatherSnapshot,
           context: {
-            timestamp: now,
+            timestamp: analysisTimestamp,
             sessionId: 'vibe-check-session',
+            previousVibe: vibeState.decision?.vibeLabel,
+            previousStyle: lastStyleRef.current ?? undefined,
+            styleLockExpiresAt: styleLockRef.current || undefined,
           },
         }),
       });
@@ -531,7 +869,7 @@ function VibeCheckPageInner() {
         throw new Error(`API responded with status: ${agentResponse.status}`);
       }
 
-      const musicResult = await agentResponse.json();
+      const musicResult: AgnoMusicResponse = await agentResponse.json();
 
       if (!musicResult.success) {
         throw new Error(musicResult.error || 'Music generation failed');
@@ -547,11 +885,23 @@ function VibeCheckPageInner() {
         console.log('🗣️ Vibe description:', musicResult.vibeDescription);
       }
 
+      if (!musicResult.music) {
+        if (musicResult.fallback) {
+          await applyFallbackPlayback(musicResult.fallback, decision);
+        } else {
+          console.warn('No music payload returned from agent response');
+          setPlayerError(musicResult.error || 'No music returned from agent');
+        }
+        return;
+      }
+
+      const music = musicResult.music as NonNullable<AgnoMusicResponse['music']>;
+
       let generatedTrackUrl: string | null = null;
 
-      if (musicResult.music?.audioBase64 && typeof window !== 'undefined') {
+      if (music.audioBase64 && typeof window !== 'undefined') {
         try {
-          const binaryString = window.atob(musicResult.music.audioBase64);
+          const binaryString = window.atob(music.audioBase64);
           const byteLength = binaryString.length;
           const bytes = new Uint8Array(byteLength);
 
@@ -559,7 +909,7 @@ function VibeCheckPageInner() {
             bytes[i] = binaryString.charCodeAt(i);
           }
 
-          const blob = new Blob([bytes], { type: musicResult.music.mimeType || 'audio/mpeg' });
+          const blob = new Blob([bytes], { type: music.mimeType || 'audio/mpeg' });
           const objectUrl = URL.createObjectURL(blob);
 
           generatedTrackUrls.current.push(objectUrl);
@@ -574,24 +924,25 @@ function VibeCheckPageInner() {
         } catch (prepError) {
           console.warn('Failed to prepare generated music data for playback:', prepError);
         }
-      } else if (musicResult.music?.dataUrl) {
-        generatedTrackUrl = musicResult.music.dataUrl;
+      } else if (music.dataUrl) {
+        generatedTrackUrl = music.dataUrl;
       }
 
       if (generatedTrackUrl) {
-        const trackName = musicResult.music?.displayName
-          ?? (musicResult.music?.style ? `${musicResult.music.style} vibe track` : 'Custom vibe track');
+        const trackName = music.filename
+          ? music.filename.replace(/[-_]/g, ' ')
+          : (music.style ? `${music.style} vibe track` : 'Custom vibe track');
 
         const generatedTrack: GeneratedTrack = {
-          id: `${musicResult.music?.filename || 'ai-track'}-${now}`,
+          id: `${music.filename || 'ai-track'}-${analysisTimestamp}`,
           name: trackName,
           url: generatedTrackUrl,
           bpm: decision.suggestedBPM,
-          genre: musicResult.music?.style,
-          style: musicResult.music?.style,
-          description: musicResult.music?.description,
-          duration: musicResult.music?.duration,
-          createdAt: musicResult.music?.generatedAt || now,
+          genre: music.style,
+          style: music.style,
+          description: music.description,
+          duration: music.duration,
+          createdAt: music.generatedAt || analysisTimestamp,
           source: 'elevenlabs',
         };
 
@@ -599,8 +950,8 @@ function VibeCheckPageInner() {
 
         console.log('🎧 Loading AI-generated track into player', {
           name: generatedTrack.name,
-          mime: musicResult.music?.mimeType,
-          size: musicResult.music?.sizeBytes,
+          mime: music.mimeType,
+          size: music.sizeBytes,
           source: generatedTrackUrl.startsWith('blob:') ? 'blob' : 'data-url',
         });
 
@@ -613,6 +964,10 @@ function VibeCheckPageInner() {
         } catch (playError) {
           console.warn('Failed to stage generated track for playback:', playError);
         }
+
+        lastStyleRef.current = generatedTrack.style || decision.vibeLabel;
+        const lockExtension = Math.max(MIN_STYLE_LOCK_MS, (music.duration ?? 60) * 1000);
+        styleLockRef.current = Date.now() + lockExtension;
       } else {
         console.warn('No playable audio data returned from ElevenLabs music response');
         setPlayerError('Music generated but no playable audio was returned');
@@ -633,7 +988,16 @@ function VibeCheckPageInner() {
     } finally {
       setIsProcessing(false);
     }
-  }, [ensureStats, isProcessing, generatedTrackUrls]);
+  }, [
+    ensureStats,
+    isProcessing,
+    generatedTrackUrls,
+    weather,
+    vibeState.decision?.vibeLabel,
+    applyFallbackPlayback,
+    lastStyleRef,
+    styleLockRef,
+  ]);
 
   // Toggle vibe check
   const toggleVibeCheck = useCallback(async () => {
@@ -642,7 +1006,11 @@ function VibeCheckPageInner() {
       stopCapture();
       setIsActive(false);
       setStats(null);
+      captureStartedAtRef.current = null;
+      captureMetricsHistoryRef.current = [];
       lastVibeCheckRef.current = 0;
+      styleLockRef.current = 0;
+      lastStyleRef.current = null;
       try {
         await adaptivePlayer.current.pause();
       } catch (pauseError) {
@@ -657,6 +1025,8 @@ function VibeCheckPageInner() {
       setPlayerError(null);
       await startCapture();
       setIsActive(true);
+      captureStartedAtRef.current = Date.now();
+      captureMetricsHistoryRef.current = [];
       try {
         await adaptivePlayer.current.loadLocalPlaylist(DEFAULT_PLAYLIST);
       } catch (playlistError) {
@@ -755,6 +1125,8 @@ function VibeCheckPageInner() {
       setLatestGeneratedTrack(null);
       setPlayerError(null);
       setLocalPlaybackState(localPlayer.current.getCurrentState());
+      styleLockRef.current = 0;
+      lastStyleRef.current = null;
     } catch (error) {
       console.warn('Failed to reset local playback:', error);
       setPlayerError('Failed to reset local playback');
