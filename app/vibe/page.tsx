@@ -419,24 +419,6 @@ function computeAveragedStats(samples: RoomStats[]): RoomStats {
   return averaged;
 }
 
-function cloneFallbackTrack(track: AudioTrack): AudioTrack {
-  return { ...track };
-}
-
-function selectFallbackTrack(style?: string, vibeLabel?: string): AudioTrack {
-  const key = (style || vibeLabel || '').toLowerCase();
-
-  if (/upbeat|electronic|dynamic|party|bored/.test(key)) {
-    return cloneFallbackTrack(DEFAULT_PLAYLIST[1]);
-  }
-
-  if (/focus|ambient|professional/.test(key)) {
-    return cloneFallbackTrack(DEFAULT_PLAYLIST[2]);
-  }
-
-  return cloneFallbackTrack(DEFAULT_PLAYLIST[0]);
-}
-
 function GeneratedTrackWidget({
   track,
   playbackState,
@@ -915,59 +897,46 @@ function VibeCheckPageInner() {
   const applyFallbackPlayback = useCallback(
     async (fallbackPlan: NonNullable<AgnoMusicResponse['fallback']>, decision: VibeDecision) => {
       const now = Date.now();
-      const baseTrack = selectFallbackTrack(fallbackPlan.suggestedStyle, decision?.vibeLabel);
 
-      const fallbackTrack: GeneratedTrack = {
-        ...baseTrack,
-        id: `fallback-${baseTrack.id}-${now}`,
-        name: baseTrack.name ?? 'Fallback vibe track',
-        style: fallbackPlan.suggestedStyle ?? baseTrack.genre ?? decision.vibeLabel,
-        description: `Local fallback track engaged to maintain the ${fallbackPlan.suggestedStyle ?? decision.vibeLabel} atmosphere.`,
-        duration: undefined,
-        createdAt: now,
-        source: 'fallback',
-        note: `Instrumental fallback engaged: ${fallbackPlan.reason}`,
-      };
-
-      console.info('🎼 Engaging fallback playlist', {
+      console.info('🎼 ElevenLabs fallback requested – skipping local playlist', {
         reason: fallbackPlan.reason,
-        style: fallbackTrack.style,
+        suggestedStyle: fallbackPlan.suggestedStyle,
       });
 
-      let playbackStarted = false;
       try {
-        const loaded = await localPlayer.current.loadPlaylist([fallbackTrack]);
-        if (!loaded) {
-          console.warn('Fallback track queued but local player refused to load');
-        } else {
-          playbackStarted = await localPlayer.current.play();
-          if (!playbackStarted) {
-            console.warn(
-              'Fallback track loaded but playback did not start automatically; user interaction may be required'
-            );
-          }
-        }
-      } catch (playError) {
-        console.warn('Failed to stage fallback track for playback:', playError);
-      } finally {
-        setLocalPlaybackState(localPlayer.current.getCurrentState());
+        await adaptivePlayer.current.pause();
+      } catch (pauseError) {
+        console.warn('Failed to pause adaptive player during fallback handling:', pauseError);
+      }
+
+      try {
+        await localPlayer.current.pause();
+      } catch (pauseError) {
+        console.warn('Failed to pause local player during fallback handling:', pauseError);
       }
 
       generatedTrackUrls.current.forEach((url) => URL.revokeObjectURL(url));
       generatedTrackUrls.current = [];
 
-      setLatestGeneratedTrack(fallbackTrack);
-      lastStyleRef.current = fallbackTrack.style || decision.vibeLabel;
+      setLatestGeneratedTrack(null);
+      setAudioPlaying(false);
+      setLocalPlaybackState(localPlayer.current.getCurrentState());
+
+      lastStyleRef.current = fallbackPlan.suggestedStyle || decision.vibeLabel;
       styleLockRef.current = now + MIN_STYLE_LOCK_MS;
-      if (playbackStarted) {
-        setPlayerError(null);
-      }
+
+      const message = fallbackPlan.reason
+        ? `Could not generate a track: ${fallbackPlan.reason}. Try running the vibe check again.`
+        : 'Could not generate a track right now. Try running the vibe check again.';
+      setPlayerError(message);
     },
     [
+      adaptivePlayer,
       localPlayer,
-      setLocalPlaybackState,
-      setLatestGeneratedTrack,
       generatedTrackUrls,
+      setLatestGeneratedTrack,
+      setAudioPlaying,
+      setLocalPlaybackState,
       lastStyleRef,
       styleLockRef,
       setPlayerError,
@@ -1226,6 +1195,7 @@ function VibeCheckPageInner() {
           source: 'elevenlabs',
         };
 
+        setPlayerError(null);
         setLatestGeneratedTrack(generatedTrack);
 
         console.log('🎧 Loading AI-generated track into player', {

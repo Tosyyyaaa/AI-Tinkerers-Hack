@@ -38,11 +38,12 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-export OPENROUTER_API_KEY=sk-openrouter...
-export ELEVENLABS_API_KEY=sk-elevenlabs...  # optional, enables real audio
-
-python elevenlabs_agentos.py  # serves http://localhost:7777
+./scripts/start-backend.sh  # serves http://localhost:7777
 ```
+The launcher automatically sources `.env` (if present) so your
+`OPENROUTER_API_KEY`, `ELEVENLABS_API_KEY`, `FIRECRAWL_API_KEY`, etc. load every
+time. Pass additional flags straight through
+(`./scripts/start-backend.sh --reload`).
 The backend exposes `/api/vibe/generate-music`. Without `ELEVENLABS_API_KEY` it
 returns mocked tracks plus a structured fallback plan so the UI can stay musical.
 

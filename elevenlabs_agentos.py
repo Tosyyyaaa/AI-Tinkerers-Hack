@@ -9,11 +9,12 @@ import logging
 import time
 import re
 from textwrap import dedent
+from typing import Any, Dict, List, Optional, Literal
 
 from agno.agent import Agent
 from agno.app.fastapi import FastAPIApp
 from agno.models.openrouter import OpenRouter
-from agno.tools.mcp import MultiMCPTools
+from agno.tools import tool
 from dotenv import load_dotenv
 
 # Setup logging
@@ -33,46 +34,57 @@ print("🎵 Starting ElevenLabs Music MCP Agent with AgentOS...")
 print(f"🔑 OpenRouter API: {'✅ Set' if openrouter_key else '❌ Missing'}")
 print(f"🔑 ElevenLabs API: {'✅ Set' if elevenlabs_key else '⚠️ Missing (will use mock music generation)'}")
 
-# Create MCPTools instance with command string and environment variables
-# This will start the MCP server as a subprocess using stdio transport
-# Pass ElevenLabs API key to the subprocess
-# Use MultiMCPTools to properly pass environment variables
-env_vars = {}
-if elevenlabs_key:
-    env_vars["ELEVENLABS_API_KEY"] = elevenlabs_key
+from elevenlabs_music_api import call_elevenlabs_music, ElevenLabsAPIError
 
-# Try to configure timeout using server_params approach
-from mcp import StdioServerParameters
 
-server_params = StdioServerParameters(
-    command="python3",
-    args=["mcp_elevenlabs_server.py"],
-    env={
-        **env_vars,
-        # Add timeout as environment variable that we'll read in the server
-        "MCP_CLIENT_TIMEOUT": "120"  # 2 minutes
-    }
+@tool(
+    name="generate_music",
+    description=(
+        "Generate an instrumental music track with ElevenLabs based on the provided "
+        "style, descriptive prompt, and duration in seconds. Returns JSON with "
+        "music_file, duration_seconds, mime_type, and the effective prompt."
+    ),
+    show_result=True,
 )
+async def generate_music_tool(style: str, description: str, duration: int = 60) -> Dict[str, Any]:
+    """Invoke the ElevenLabs Music API and persist the generated track locally.
 
-# Use MultiMCPTools with both approaches - fallback to command if server_params doesn't work
-try:
-    from agno.tools.mcp import MCPTools
-    # Try MCPTools with server_params first
-    mcp_tools = MCPTools(server_params=server_params, timeout_seconds=120)
-except Exception as e:
-    logger.warning(f"Could not configure MCPTools with server_params: {e}")
-    # Fallback to MultiMCPTools
-    mcp_tools = MultiMCPTools(
-        commands=["python3 mcp_elevenlabs_server.py"],
-        env=env_vars,
-        timeout_seconds=120
+    The tool normalises the requested duration to ElevenLabs' accepted range and
+    augments the prompt with the style so the backend can keep a consistent
+    briefing format.
+    """
+
+    clean_style = (style or "").strip() or "electronic"
+
+    prompt_parts = []
+    if description and description.strip():
+        prompt_parts.append(description.strip())
+    prompt_parts.append(f"Style: {clean_style}")
+    prompt_parts.append("Instrumental only. No vocals.")
+    prompt_parts.append("Ensure the track loops cleanly if possible.")
+
+    final_prompt = "\n".join(prompt_parts)
+
+    duration_seconds = max(10, min(300, int(duration)))
+
+    result = await call_elevenlabs_music(
+        prompt=final_prompt,
+        style=clean_style,
+        duration_seconds=duration_seconds,
     )
+
+    return {
+        "prompt": final_prompt,
+        "music_file": result["music_file"],
+        "duration_seconds": result["duration_seconds"],
+        "mime_type": result["mime_type"],
+    }
 
 # Create the music agent
 music_agent = Agent(
-    agent_id="elevenlabs-music-mcp-agent",
+    agent_id="elevenlabs-music-agent",
     name="ElevenLabs Music Agent 🎵",
-    tools=[mcp_tools],
+    tools=[generate_music_tool],
     instructions=dedent("""\
         You are an advanced AI music generation agent powered by ElevenLabs' cutting-edge music creation technology.
 
@@ -123,7 +135,7 @@ music_agent = Agent(
 
         The AI-generated track captures that classic jazz sophistication perfectly! 🎶"
 
-        **IMPORTANT**: Always use the generate_music tool to create custom tracks based on user requests!
+        **IMPORTANT**: Always call the `generate_music` tool with the precise style, descriptive prompt, and duration requested by the brief. Do not fabricate file paths—always rely on the tool result.
     """),
     model=OpenRouter(
         id="deepseek/deepseek-chat-v3.1",
@@ -189,7 +201,6 @@ STYLE_BY_DECISION = {
 # Add custom endpoint for vibe-based music generation
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Literal
 import json
 
 # Pydantic models for vibe processing
@@ -655,7 +666,7 @@ After the tool call, reply with a 1–2 sentence confirmation describing how the
         fallback_plan: Optional[FallbackPlan] = None
         if not music_info:
             try:
-                from mcp_elevenlabs_server import _call_elevenlabs_api as call_elevenlabs_music
+                from elevenlabs_music_api import call_elevenlabs_music
 
                 logger.info("🎧 Falling back to direct ElevenLabs API call")
                 music_result = await call_elevenlabs_music(prompt, selected_style, 60)
