@@ -1511,11 +1511,11 @@ function VibeCheckPageInner() {
                     Catch the Place + Weather
                   </h2>
                   <span className="text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-white/15 text-white/90">
-                    Firecrawl
+                    Vibe Scout
                   </span>
                 </div>
                 <p className="text-sm text-white/80 leading-relaxed">
-                  Drop in an event listing or a coffee spot link. Firecrawl pulls the vibe, and we fuse it with the live weather to craft the soundtrack.
+                  Drop in an event listing or a coffee spot link. Our vibe scout finds the ambience cues, and we fuse them with the live weather to craft the soundtrack.
                 </p>
                 <ul className="mt-4 space-y-2 text-sm text-white/80">
                   <li>• Works with Luma, Eventbrite, Resident Advisor, Google Maps and more.</li>
@@ -1575,7 +1575,7 @@ function VibeCheckPageInner() {
                 <h2 className="text-lg font-semibold mb-3 text-gray-900 flex items-center gap-2">
                   🌐 Paste Event or Place URL
                   <span className="text-xs px-2 py-1 bg-purple-100 text-purple-600 rounded-full uppercase tracking-[0.2em]">
-                    Firecrawl
+                    Vibe Scout
                   </span>
                 </h2>
                 <div className="space-y-3">
@@ -1792,7 +1792,7 @@ function VibeCheckPageInner() {
                 <p>• Sensors amplify tempo when the room is bright and high-energy.</p>
                 <p>• Fall back to laid-back grooves when motion and smiles cool off.</p>
                 <p>• Weather nudges warmth, ambience, and percussion intensity.</p>
-                <p>• Event drops inherit crowd + atmosphere cues straight from Firecrawl.</p>
+                <p>• Event drops inherit crowd + atmosphere cues straight from our vibe scout.</p>
               </div>
             </div>
           </div>
