@@ -3,7 +3,9 @@
 This project pairs a **sensor-aware Next.js front of house** with a **compact
 AgentOS backend** that orchestrates ElevenLabs Music. Room stats from the
 browser drive a creative brief, the agent generates (or fakes) a soundtrack, and
-local playback keeps the vibe alive even when external audio is unavailable.
+local playback keeps the vibe alive even when external audio is unavailable. A
+Firecrawl-powered extractor can mirror the ambience of external event pages or
+venue listings to seed the vibe manually.
 
 > The earlier weather-focused tooling has been sunset. What remains is the
 > streamlined music experience that we demoed at AI Tinkerers.
@@ -14,6 +16,7 @@ local playback keeps the vibe alive even when external audio is unavailable.
 - AgentOS bridges those briefs to ElevenLabs Music via OpenRouter
 - Automatic local fallback playlist kicks in when the agent cannot return audio
 - Browser-based player (`lib/audio/localPlayer`) supervises volume ramps & state
+- Firecrawl `/scrape` keeps `/api/extract-event` working for both events and venues (Eventbrite, Google Maps, etc.)
 
 ## 🚀 Quick Start
 
@@ -22,6 +25,7 @@ local playback keeps the vibe alive even when external audio is unavailable.
 - Python 3.10+
 - `OPENROUTER_API_KEY` (required for the agent to launch)
 - *(Optional)* `ELEVENLABS_API_KEY` for live music instead of the built-in mocks
+- `FIRECRAWL_API_KEY` for event/venue vibe extraction
 
 ### 1. Backend (AgentOS + ElevenLabs)
 ```bash
@@ -43,9 +47,10 @@ npm install
 npm run dev
 ```
 Open http://localhost:3000/vibe and approve camera/mic access. Create an
-`.env.local` if you need to point at a different agent instance:
+`.env.local` if you need to supply keys or point at a different agent instance:
 ```bash
 AGNO_AGENT_URL=http://localhost:7777
+FIRECRAWL_API_KEY=fc-...
 ```
 
 ### 3. Useful scripts
@@ -75,6 +80,21 @@ When the backend responds with `fallback`, `app/vibe/page.tsx` now:
 
 That change guarantees continuous music during outages—the review regression is
 resolved by ensuring playback starts the moment the fallback queues up.
+
+## 🌐 Firecrawl Event & Venue Extraction
+- Endpoint: `POST /api/extract-event`
+- Input: `{ "url": "https://..." }` where the URL is an event page (Eventbrite, Resident Advisor, etc.) or a place listing (Google Maps, Yelp, venue site)
+- The API submits the URL to Firecrawl `/scrape` using the FIRE-1 agent with a schema that captures vibe cues, crowd details, and suggested BPM/volume.
+- Responses always include a `success` flag and `eventData` payload compatible with the vibe UI. Places are normalised to the same structure (e.g. `entityType: "place"`, `placeName`, `vibeDescription`).
+- Tip: Firecrawl works best with shareable URLs (e.g. Google Maps "Share" links). Short dynamic links that return HTTP 404 are surfaced as errors so you can adjust the source.
+
+To try it manually:
+```bash
+curl -X POST http://localhost:3000/api/extract-event \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://www.eventbrite.com/..."}'
+```
+Ensure `FIRECRAWL_API_KEY` is loaded in your environment before calling the endpoint.
 
 ## 📡 Request Payload (abridged)
 ```jsonc
