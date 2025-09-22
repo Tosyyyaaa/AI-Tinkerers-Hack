@@ -7,16 +7,19 @@ local playback keeps the vibe alive even when external audio is unavailable. A
 Firecrawl-powered extractor can mirror the ambience of external event pages or
 venue listings to seed the vibe manually.
 
-> The earlier weather-focused tooling has been sunset. What remains is the
-> streamlined music experience that we demoed at AI Tinkerers.
+> New in this build: pick **Catch the Vibe + Weather** (live sensors) or **Catch
+> the Place + Weather** (Firecrawl + weather) to seed the soundtrack.
 
 ## ✨ Features
+- Landing deck offers two modes: **Catch the Vibe + Weather** (sensors) and
+  **Catch the Place + Weather** (URL intelligence)
 - Real-time webcam & audio analysis streams into `useVibeSensors`
+- Firecrawl `/scrape` ingests event and place URLs (Luma, Eventbrite, Google
+  Maps, Yelp, bespoke venue sites) for manual seeding
 - Creative briefs describe the room (energy, warmth, instrumentation hints)
 - AgentOS bridges those briefs to ElevenLabs Music via OpenRouter
 - Automatic local fallback playlist kicks in when the agent cannot return audio
 - Browser-based player (`lib/audio/localPlayer`) supervises volume ramps & state
-- Firecrawl `/scrape` keeps `/api/extract-event` working for both events and venues (Eventbrite, Google Maps, etc.)
 
 ## 🚀 Quick Start
 
@@ -46,7 +49,12 @@ returns mocked tracks plus a structured fallback plan so the UI can stay musical
 npm install
 npm run dev
 ```
-Open http://localhost:3000/vibe and approve camera/mic access. Create an
+Open http://localhost:3000/ (auto-redirects to the deck) and choose your flow:
+- **Catch the Vibe + Weather** – grant camera/mic access when prompted
+- **Catch the Place + Weather** – paste an event or place URL (requires
+  `FIRECRAWL_API_KEY`)
+
+Create an
 `.env.local` if you need to supply keys or point at a different agent instance:
 ```bash
 AGNO_AGENT_URL=http://localhost:7777
@@ -58,6 +66,14 @@ FIRECRAWL_API_KEY=fc-...
 npm run build   # production bundle
 npm run lint    # ESLint / TypeScript / Tailwind checks
 ```
+
+## 🧭 Usage Flows
+- **Catch the Vibe + Weather**: Allows camera + mic access, taps *Catch the
+  Vibe*, and watches live metrics react to motion, smiles, and brightness while
+  weather nudges warmth and tempo.
+- **Catch the Place + Weather**: Pastes an event/venue link, Firecrawl extracts
+  vibe metadata, and a single click on *Catch this Vibe* pushes the summary into
+  the music pipeline (no camera required).
 
 ## 🔄 How the stack talks
 1. The UI captures a snapshot of room stats and interprets a vibe decision.
@@ -94,7 +110,7 @@ curl -X POST http://localhost:3000/api/extract-event \
   -H 'Content-Type: application/json' \
   -d '{"url":"https://www.eventbrite.com/..."}'
 ```
-Ensure `FIRECRAWL_API_KEY` is loaded in your environment before calling the endpoint.
+Ensure `FIRECRAWL_API_KEY` is loaded in your environment before calling the endpoint or using the **Catch the Place + Weather** flow in the UI.
 
 ## 📡 Request Payload (abridged)
 ```jsonc

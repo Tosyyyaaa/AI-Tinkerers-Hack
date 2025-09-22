@@ -6,18 +6,16 @@ import { ModernDeck } from '@/components/ModernDeck';
 export default function IntroAltPage() {
   const router = useRouter();
 
-  const handleSelection = (id: "hot-cue" | "amplify") => {
+  const handleSelection = (id: 'hot-cue' | 'amplify') => {
     console.log('Modern DJ Deck Selected:', id);
-    
-    // Map deck choices to app functionality
+
+    // Map deck choices to updated flows
     switch (id) {
       case 'hot-cue':
-        // Hot Cue = Manual control (like "I want to control the vibes")
-        router.push('/vibe?mode=control');
+        router.push('/vibe?mode=sensors');
         break;
       case 'amplify':
-        // Amplify = Auto mode (like "Investigate the vibes for me")
-        router.push('/vibe?mode=investigate');
+        router.push('/vibe?mode=url');
         break;
       default:
         router.push('/vibe');

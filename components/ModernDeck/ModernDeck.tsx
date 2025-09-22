@@ -9,7 +9,7 @@ import { FlickeringGrid } from '@/components/ui/flickering-grid';
 import './ModernDeck.css';
 
 export interface ModernDeckProps {
-  onSelect: (id: "hot-cue" | "amplify") => void;
+  onSelect: (id: 'hot-cue' | 'amplify') => void;
   useSpotify?: boolean;
 }
 
@@ -95,9 +95,6 @@ export const ModernDeck: React.FC<ModernDeckProps> = ({
 
   const handleInvestigate = useCallback(() => {
     handleAmplify();
-    setTimeout(() => {
-      window.location.href = '/vibe?mode=control';
-    }, 300);
   }, [handleAmplify]);
 
   // Handle crossfader movement
@@ -196,7 +193,14 @@ export const ModernDeck: React.FC<ModernDeckProps> = ({
 
             {/* Jog Wheel */}
             <div className="jog-wheel-container">
-              <div className="jog-wheel-text">I want to control the vibes</div>
+              <div className="jog-wheel-text">
+                <span className="block text-lg font-semibold tracking-wide">
+                  Catch the Vibe + Weather
+                </span>
+                <span className="block text-xs text-purple-200 mt-1 uppercase tracking-[0.2em]">
+                  Live sensors · ambient insights
+                </span>
+              </div>
               <div 
                 ref={leftJogRef}
                 className="modern-jog-wheel"
@@ -316,7 +320,14 @@ export const ModernDeck: React.FC<ModernDeckProps> = ({
 
             {/* Jog Wheel */}
             <div className="jog-wheel-container">
-              <div className="jog-wheel-text">Investigate the vibes for me</div>
+              <div className="jog-wheel-text">
+                <span className="block text-lg font-semibold tracking-wide">
+                  Catch the Place + Weather
+                </span>
+                <span className="block text-xs text-sky-200 mt-1 uppercase tracking-[0.2em]">
+                  Firecrawl intel · venue vibes
+                </span>
+              </div>
               <div
                 ref={rightJogRef}
                 className="modern-jog-wheel"

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useId } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { FlickeringGrid } from '@/components/ui/flickering-grid';
 import { useVibeSensors } from '@/lib/vibe/useVibeSensors';
 import { performVibeCheck } from '@/lib/vibe/interpretVibe';
@@ -39,6 +40,165 @@ type GeneratedTrack = AudioTrack & {
   source: 'elevenlabs' | 'fallback';
   note?: string;
 };
+
+type EventVibeData = {
+  entityType: 'event' | 'place';
+  eventTitle?: string;
+  eventDescription?: string;
+  vibeLabel: string;
+  vibeDescription: string;
+  suggestedBPM?: number;
+  suggestedVolume?: number;
+  eventDate?: string;
+  eventLocation?: string;
+  eventType?: string;
+  atmosphere?: string;
+  expectedCrowd?: string;
+  placeName?: string;
+  placeAddress?: string;
+  placeType?: string;
+  placeHours?: string;
+  placeActivities?: string;
+  notes?: string;
+  sourceUrl: string;
+};
+
+const EVENT_LABEL_MAP: Record<string, VibeDecision['vibeLabel']> = {
+  party: 'party',
+  energetic: 'party',
+  festive: 'party',
+  hype: 'party',
+  chill: 'chill',
+  relaxed: 'chill',
+  intimate: 'chill',
+  mellow: 'chill',
+  focused: 'focused',
+  productive: 'focused',
+  work: 'focused',
+  bored: 'bored',
+};
+
+function clampToRange(value: number | undefined, min: number, max: number, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.min(max, Math.max(min, value));
+  }
+  return fallback;
+}
+
+function normaliseEventLabel(label: string | undefined): VibeDecision['vibeLabel'] {
+  if (!label) {
+    return 'focused';
+  }
+
+  const lowered = label.toLowerCase();
+  return EVENT_LABEL_MAP[lowered] ?? 'focused';
+}
+
+function buildDecisionFromEvent(event: EventVibeData): VibeDecision {
+  const vibeLabel = normaliseEventLabel(event.vibeLabel);
+  const fallbackBpm = vibeLabel === 'party' ? 126 : vibeLabel === 'chill' ? 92 : vibeLabel === 'bored' ? 80 : 108;
+  const fallbackVolume = vibeLabel === 'chill' ? 0.6 : vibeLabel === 'bored' ? 0.5 : 0.75;
+
+  const suggestedBPM = Math.round(clampToRange(event.suggestedBPM, 60, 180, fallbackBpm));
+  const suggestedVolume = Number(clampToRange(event.suggestedVolume, 0.1, 1, fallbackVolume).toFixed(2));
+
+  const rawDescription = (event.vibeDescription || event.eventDescription || '').trim();
+  const spokenTip = rawDescription.length > 0
+    ? (rawDescription.length > 180 ? `${rawDescription.slice(0, 177)}…` : rawDescription)
+    : `Lean into the ${vibeLabel} energy and let the music set the scene.`;
+
+  return {
+    vibeLabel,
+    suggestedBPM,
+    suggestedVolume,
+    spokenTip,
+  };
+}
+
+function applyEventInfluenceToStats(base: RoomStats, decision: VibeDecision): RoomStats {
+  const vibe = decision.vibeLabel;
+
+  const profiles: Record<VibeDecision['vibeLabel'], {
+    brightness: number;
+    motion: number;
+    crowd: number;
+    volume: number;
+    energy: number;
+    noise: number;
+    speech: number;
+    style: RoomStats['styleIndicator'];
+    lighting: RoomStats['lightingPattern'];
+    colors: string[];
+  }> = {
+    party: {
+      brightness: 0.75,
+      motion: 0.82,
+      crowd: 0.78,
+      volume: 0.85,
+      energy: 0.88,
+      noise: 0.62,
+      speech: 0.55,
+      style: 'party',
+      lighting: 'dynamic',
+      colors: ['#ff4d6d', '#ff7849', '#ffd166'],
+    },
+    chill: {
+      brightness: 0.42,
+      motion: 0.28,
+      crowd: 0.32,
+      volume: 0.55,
+      energy: 0.38,
+      noise: 0.25,
+      speech: 0.35,
+      style: 'casual',
+      lighting: 'dim',
+      colors: ['#4c6ef5', '#64dfdf', '#80ffdb'],
+    },
+    focused: {
+      brightness: 0.58,
+      motion: 0.36,
+      crowd: 0.4,
+      volume: 0.6,
+      energy: 0.5,
+      noise: 0.28,
+      speech: 0.42,
+      style: 'professional',
+      lighting: 'steady',
+      colors: ['#6366f1', '#38bdf8', '#a855f7'],
+    },
+    bored: {
+      brightness: 0.35,
+      motion: 0.18,
+      crowd: 0.22,
+      volume: 0.45,
+      energy: 0.2,
+      noise: 0.2,
+      speech: 0.2,
+      style: 'formal',
+      lighting: 'steady',
+      colors: ['#6b7280', '#94a3b8', '#cbd5f5'],
+    },
+  };
+
+  const profile = profiles[vibe];
+
+  const motionZones = base.motionZones.map(() => profile.motion);
+
+  return {
+    ...base,
+    avgBrightness: profile.brightness,
+    motionLevel: profile.motion,
+    motionZones,
+    crowdDensity: profile.crowd,
+    styleIndicator: profile.style,
+    dominantColors: profile.colors,
+    lightingPattern: profile.lighting,
+    audioVolume: profile.volume,
+    audioEnergy: profile.energy,
+    noiseLevel: profile.noise,
+    speechProbability: profile.speech,
+  };
+}
 
 function formatSeconds(totalSeconds: number): string {
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
@@ -529,8 +689,22 @@ function VibeCheckPageInner() {
   // Event URL state
   const [eventUrl, setEventUrl] = useState('');
   const [isExtractingEvent, setIsExtractingEvent] = useState(false);
-  const [eventVibeData, setEventVibeData] = useState<any>(null);
+  const [eventVibeData, setEventVibeData] = useState<EventVibeData | null>(null);
   const [urlVibeError, setUrlVibeError] = useState<string | null>(null);
+  const [eventMetadata, setEventMetadata] = useState<{
+    sourceTitle?: string;
+    sourceDescription?: string;
+    sourceUrl?: string;
+    statusCode?: number;
+    creditsUsed?: number;
+  } | null>(null);
+
+  const searchParams = useSearchParams();
+  const rawMode = searchParams.get('mode')?.toLowerCase();
+  const isUrlMode = rawMode === 'url' || rawMode === 'place' || rawMode === 'investigate';
+  const isSensorsMode = !isUrlMode;
+  const modeTitle = isUrlMode ? 'Catch the Place + Weather' : 'Catch the Vibe + Weather';
+  const eventDecisionPreview = eventVibeData ? buildDecisionFromEvent(eventVibeData) : null;
 
   const localPlayer = useRef(getLocalPlayer());
   const adaptivePlayer = useRef(getAdaptivePlayer());
@@ -726,14 +900,20 @@ function VibeCheckPageInner() {
 
   // Vibe check cycle
   const performVibeCheckCycle = useCallback(async (
-    options?: { statsOverride?: RoomStats | null; force?: boolean }
+    options?: {
+      statsOverride?: RoomStats | null;
+      force?: boolean;
+      decisionOverride?: VibeDecision;
+      eventContext?: EventVibeData | null;
+    }
   ) => {
     if (isProcessing && !options?.force) {
       return;
     }
 
+    const hasDecisionOverride = Boolean(options?.decisionOverride);
     const preWarmupNow = Date.now();
-    let lockActive = styleLockRef.current > preWarmupNow;
+    let lockActive = styleLockRef.current > preWarmupNow && !hasDecisionOverride;
 
     if (!options?.force) {
       const minimumGap = lockActive ? 8000 : 3000;
@@ -756,7 +936,7 @@ function VibeCheckPageInner() {
       }
 
       const analysisTimestamp = Date.now();
-      lockActive = styleLockRef.current > analysisTimestamp;
+      lockActive = styleLockRef.current > analysisTimestamp && !hasDecisionOverride;
 
       if (!options?.force) {
         const minimumGap = lockActive ? 8000 : 3000;
@@ -811,25 +991,32 @@ function VibeCheckPageInner() {
       setVibeState(prev => ({ ...prev, isAnalyzing: true, error: null }));
       setPlayerError(null);
 
-      console.log('🎯 Performing vibe check with stats:', activeStats);
-      if (statsWindow) {
-        console.log('📊 Aggregated stats window', {
-          sampleCount: statsWindow.sampleCount,
-          start: new Date(statsWindow.start).toISOString(),
-          end: new Date(statsWindow.end).toISOString(),
-          averaged: statsWindow.averagedStats,
-        });
-      }
+      let decision: VibeDecision;
 
-      const vibeResult = await performVibeCheck(activeStats);
-      const decision = vibeResult.decision;
+      console.log(`🎯 Performing vibe check (${hasDecisionOverride ? 'event-context' : 'live-sensors'})`, activeStats);
 
-      if (vibeResult.audioBuffer) {
-        try {
-          await adaptivePlayer.current.playTTS(vibeResult.audioBuffer);
-        } catch (ttsError) {
-          console.warn('Adaptive player TTS failed, using local player:', ttsError);
-          await localPlayer.current.playTTS(vibeResult.audioBuffer);
+      if (options?.decisionOverride) {
+        decision = options.decisionOverride;
+      } else {
+        if (statsWindow) {
+          console.log('📊 Aggregated stats window', {
+            sampleCount: statsWindow.sampleCount,
+            start: new Date(statsWindow.start).toISOString(),
+            end: new Date(statsWindow.end).toISOString(),
+            averaged: statsWindow.averagedStats,
+          });
+        }
+
+        const vibeResult = await performVibeCheck(activeStats);
+        decision = vibeResult.decision;
+
+        if (vibeResult.audioBuffer) {
+          try {
+            await adaptivePlayer.current.playTTS(vibeResult.audioBuffer);
+          } catch (ttsError) {
+            console.warn('Adaptive player TTS failed, using local player:', ttsError);
+            await localPlayer.current.playTTS(vibeResult.audioBuffer);
+          }
         }
       }
 
@@ -843,6 +1030,21 @@ function VibeCheckPageInner() {
             uvIndex: weather.uvIndex,
             cloudiness: weather.cloudiness,
             timestamp: weather.timestamp,
+          }
+        : undefined;
+
+      const eventContextPayload = options?.eventContext
+        ? {
+            entityType: options.eventContext.entityType,
+            title: options.eventContext.eventTitle ?? options.eventContext.placeName,
+            vibeLabel: options.eventContext.vibeLabel,
+            vibeDescription: options.eventContext.vibeDescription,
+            suggestedBPM: options.eventContext.suggestedBPM,
+            suggestedVolume: options.eventContext.suggestedVolume,
+            location: options.eventContext.eventLocation ?? options.eventContext.placeAddress,
+            when: options.eventContext.eventDate,
+            notes: options.eventContext.notes,
+            sourceUrl: options.eventContext.sourceUrl,
           }
         : undefined;
 
@@ -861,6 +1063,8 @@ function VibeCheckPageInner() {
             previousVibe: vibeState.decision?.vibeLabel,
             previousStyle: lastStyleRef.current ?? undefined,
             styleLockExpiresAt: styleLockRef.current || undefined,
+            flowMode: isUrlMode ? 'catch_place_weather' : 'catch_vibe_weather',
+            eventContext: eventContextPayload,
           },
         }),
       });
@@ -997,6 +1201,7 @@ function VibeCheckPageInner() {
     applyFallbackPlayback,
     lastStyleRef,
     styleLockRef,
+    isUrlMode,
   ]);
 
   // Toggle vibe check
@@ -1043,6 +1248,7 @@ function VibeCheckPageInner() {
 
     setIsExtractingEvent(true);
     setUrlVibeError(null);
+    setEventMetadata(null);
 
     try {
       const response = await fetch('/api/extract-event', {
@@ -1059,7 +1265,18 @@ function VibeCheckPageInner() {
       
       // The API returns { success: true, eventData: {...} }
       if (data.success && data.eventData) {
-        setEventVibeData(data.eventData);
+        const normalisedEvent: EventVibeData = {
+          ...data.eventData,
+          sourceUrl: data.eventData.sourceUrl || eventUrl.trim(),
+        };
+
+        setEventVibeData(normalisedEvent);
+        setEventMetadata(data.metadata ? {
+          ...data.metadata,
+          sourceUrl: data.metadata.sourceUrl || normalisedEvent.sourceUrl,
+        } : {
+          sourceUrl: normalisedEvent.sourceUrl,
+        });
       } else {
         throw new Error('Invalid response format from API');
       }
@@ -1073,24 +1290,46 @@ function VibeCheckPageInner() {
 
   // Apply event vibe
   const applyEventVibe = useCallback(() => {
-    if (!eventVibeData || !eventVibeData.vibeLabel) {
+    if (!eventVibeData) {
       console.warn('Cannot apply event vibe: missing vibe data');
       return;
     }
-    
-    console.log('🌐 Applying event vibe:', eventVibeData);
-    setVibeState({
-      isAnalyzing: false,
-      decision: {
-        vibeLabel: eventVibeData.vibeLabel,
-        suggestedBPM: eventVibeData.suggestedBPM || 120,
-        suggestedVolume: eventVibeData.suggestedVolume || 0.7,
-        spokenTip: `Based on event analysis: ${eventVibeData.vibeDescription || eventVibeData.eventDescription || 'Event-based vibe detected'}`,
-        action: 'keep'
-      },
-      error: null
+
+    const decision = buildDecisionFromEvent(eventVibeData);
+    const baseStats = ensureStats(null);
+
+    if (!baseStats) {
+      console.warn('Cannot apply event vibe: stats baseline unavailable');
+      return;
+    }
+
+    const statsForEvent = applyEventInfluenceToStats(cloneRoomStats(baseStats), decision);
+
+    console.log('🌐 Applying event vibe:', {
+      decision,
+      event: eventVibeData,
     });
-  }, [eventVibeData]);
+
+    setVibeState({
+      isAnalyzing: true,
+      decision,
+      error: null,
+    });
+    setPlayerError(null);
+
+    // Reset capture timers so event mode can take over immediately
+    captureStartedAtRef.current = null;
+    captureMetricsHistoryRef.current = [];
+    styleLockRef.current = 0;
+    lastStyleRef.current = decision.vibeLabel;
+
+    void performVibeCheckCycle({
+      force: true,
+      statsOverride: statsForEvent,
+      decisionOverride: decision,
+      eventContext: eventVibeData,
+    });
+  }, [eventVibeData, ensureStats, performVibeCheckCycle]);
 
   const handlePlayGeneratedTrack = useCallback(async () => {
     if (!latestGeneratedTrack) return;
@@ -1178,228 +1417,361 @@ function VibeCheckPageInner() {
           <h1 className="text-4xl font-bold text-white mb-2">
             MusicBuddy Vibe Check
           </h1>
-          <p className="text-white text-opacity-80 flex items-center gap-2">
-            AI-powered webcam vibe analysis with music adaptation
-            <PrivacyTooltip />
-          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-white text-opacity-80 flex items-center gap-2">
+              AI-powered vibes that blend ambience, music, and weather
+              <PrivacyTooltip />
+            </p>
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-white/10 text-xs font-semibold uppercase tracking-[0.25em] text-white/80">
+              {modeTitle}
+            </span>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Left Columns: Video (spans 2 columns) */}
-          <div className="lg:col-span-2">
-            <div className="stats-card">
-                <h2 className="text-lg font-semibold mb-4 text-gray-900">
-                Live Video
-              </h2>
-              
+        <div className={`grid grid-cols-1 gap-6 ${isUrlMode ? 'lg:grid-cols-2 xl:grid-cols-3' : 'lg:grid-cols-3'}`}>
+          <div className={`${isSensorsMode ? 'lg:col-span-2' : ''} space-y-6`}>
+            {isSensorsMode ? (
+              <div className="stats-card">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Catch the Vibe + Weather
+                  </h2>
+                  <span className="text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-purple-100 text-purple-600">
+                    Sensors
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Allow camera + mic, then tap <strong>Catch the Vibe</strong>. We blend real-time ambience with the current weather to steer the soundtrack.
+                </p>
                 <div className="relative mb-4 flex justify-center">
-                <video
+                  <video
                     ref={hookVideoRef}
                     className="video-preview w-full bg-gray-900 rounded-lg"
-                  autoPlay
-                  muted
-                  playsInline
-                    style={{ 
+                    autoPlay
+                    muted
+                    playsInline
+                    style={{
                       objectFit: 'contain',
                       aspectRatio: '16/9',
                       height: 'auto',
-                      maxHeight: '300px'
+                      maxHeight: '300px',
                     }}
-                />
-                <canvas
+                  />
+                  <canvas
                     ref={hookCanvasRef}
-                  className="hidden"
-                />
-                
-                {!hasPermission && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg">
+                    className="hidden"
+                  />
+
+                  {!hasPermission && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100/90 dark:bg-gray-700/90 rounded-lg">
                       <div className="text-center text-gray-700">
-                      <svg className="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
-                      </svg>
-                      <div>Camera access needed</div>
+                        <svg className="w-12 h-12 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+                        </svg>
+                        <div>Camera access needed</div>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Control Buttons */}
-              <div className="space-y-2">
-                <button
-                  onClick={toggleVibeCheck}
-                  disabled={isProcessing}
-                  className={`control-button w-full ${
-                    isActive ? 'control-button-danger' : 'control-button-primary'
-                  }`}
-                >
-                  {isProcessing ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      Analysing Vibe...
-                    </span>
-                  ) : isActive ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                      Stop Vibe Check
-                    </span>
-                  ) : (
-                    'Start Vibe Check'
                   )}
-                </button>
-                
-              </div>
+                </div>
 
-              {/* Error Display */}
-              {vibeState.error && (
-                  <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-lg">
-                    <div className="text-red-800 text-sm">
+                <div className="space-y-2">
+                  <button
+                    onClick={toggleVibeCheck}
+                    disabled={isProcessing}
+                    className={`control-button w-full ${
+                      isActive ? 'control-button-danger' : 'control-button-primary'
+                    }`}
+                  >
+                    {isProcessing ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Analysing Vibe...
+                      </span>
+                    ) : isActive ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                        Stop Capture
+                      </span>
+                    ) : (
+                      'Catch the Vibe'
+                    )}
+                  </button>
+                </div>
+
+                {vibeState.error && (
+                  <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-lg text-sm text-red-800">
                     {vibeState.error}
                   </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Middle Column: Weather & URL */}
-          <div className="lg:col-span-1 space-y-6">
-            {/* Weather Box */}
-            <div className="stats-card">
-              <h3 className="text-lg font-semibold mb-4 text-gray-900 text-center">
-                🌤️ Weather
-              </h3>
-              {weather ? (
-                <div className="text-center space-y-2">
-                  <div className="text-2xl font-bold text-gray-900">{Math.round(weather.temperature)}°C</div>
-                  <div className="text-sm text-gray-600">{weather.location}</div>
-                  <div className="text-xs text-gray-600 capitalize">{weather.description}</div>
-                </div>
-              ) : (
-                <div className="text-center text-sm text-gray-600">Loading weather...</div>
-              )}
-            </div>
-
-            {/* URL Box */}
-            <div className="stats-card">
-              <h2 className="text-lg font-semibold mb-4 text-gray-900 flex items-center gap-2">
-                🌐 Event URL
-                <span className="text-xs px-2 py-1 bg-purple-100 text-purple-600 rounded-full">
-                  Gemini
-                </span>
-              </h2>
-              
-              <div className="space-y-3">
-                <input
-                  type="url"
-                  value={eventUrl}
-                  onChange={(e) => setEventUrl(e.target.value)}
-                  placeholder="Paste event URL here..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
-                />
-                <button
-                  onClick={extractEventVibe}
-                  disabled={!eventUrl.trim() || isExtractingEvent}
-                  className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 
-                           text-white rounded-lg font-medium transition-colors text-sm
-                           disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isExtractingEvent ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                      Extracting...
-                    </>
-                  ) : (
-                    <>
-                      🔍 Extract Vibe
-                    </>
-                  )}
-                </button>
-
-                {urlVibeError && (
-                  <div className="p-3 bg-red-100 border border-red-300 rounded-lg">
-                    <div className="text-red-800 text-sm">
-                      {urlVibeError}
-                    </div>
-                  </div>
-                )}
-
-                {eventVibeData && eventVibeData.vibeLabel && (
-                  <div className="p-3 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className={`vibe-label vibe-label-${eventVibeData.vibeLabel} inline-block text-xs`}>
-                        {eventVibeData.vibeLabel.toUpperCase()}
-                      </div>
-                      <button
-                        onClick={applyEventVibe}
-                        className="px-2 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs rounded
-                                 font-medium transition-colors"
-                      >
-                        ✨ Apply
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-700 leading-relaxed">
-                      {eventVibeData.vibeDescription || eventVibeData.eventDescription || 'Event analysis completed'}
-                    </p>
-                  </div>
                 )}
               </div>
-            </div>
+            ) : (
+              <div className="stats-card bg-gradient-to-br from-slate-900 via-purple-900 to-slate-950 text-white border border-white/10">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold">
+                    Catch the Place + Weather
+                  </h2>
+                  <span className="text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-white/15 text-white/90">
+                    Firecrawl
+                  </span>
+                </div>
+                <p className="text-sm text-white/80 leading-relaxed">
+                  Drop in an event listing or a coffee spot link. Firecrawl pulls the vibe, and we fuse it with the live weather to craft the soundtrack.
+                </p>
+                <ul className="mt-4 space-y-2 text-sm text-white/80">
+                  <li>• Works with Luma, Eventbrite, Resident Advisor, Google Maps and more.</li>
+                  <li>• Highlights scene descriptors, crowd density, and tempo hints.</li>
+                  <li>• Auto-balances the mix with the temperature, humidity, and sky cover.</li>
+                </ul>
+              </div>
+            )}
           </div>
 
-          {/* Right Column: Live Metrics */}
-          <div className="lg:col-span-1">
+          <div className="space-y-6">
             <div className="stats-card">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Live Metrics
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Weather Sync
+                </h3>
+                <span className="text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-blue-100 text-blue-600">
+                  Live
+                </span>
+              </div>
+              {weather ? (
+                <div className="grid grid-cols-2 gap-3 text-sm text-gray-700">
+                  <div>
+                    <div className="text-3xl font-bold text-gray-900">{Math.round(weather.temperature)}°C</div>
+                    <div className="text-xs uppercase tracking-[0.3em] text-gray-500 mt-1">
+                      {weather.location || 'Your spot'}
+                    </div>
+                    <div className="text-xs text-gray-500 capitalize mt-1">{weather.description}</div>
+                  </div>
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <div>Feels like {Math.round(weather.feelsLike)}°C</div>
+                    <div>Humidity {weather.humidity}%</div>
+                    {typeof weather.cloudiness === 'number' && (
+                      <div>Cloud cover {weather.cloudiness}%</div>
+                    )}
+                    {typeof weather.uvIndex === 'number' && (
+                      <div>UV index {weather.uvIndex}</div>
+                    )}
+                  </div>
+                </div>
+              ) : weatherLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <div className="animate-spin rounded-full h-6 w-6 border-2 border-blue-500 border-t-transparent"></div>
+                </div>
+              ) : weatherError ? (
+                <div className="text-sm text-red-600">Unable to load weather right now.</div>
+              ) : (
+                <div className="text-sm text-gray-600">No weather data available.</div>
+              )}
+              <p className="mt-4 text-xs text-gray-500">
+                Weather is automatically folded into the music brief so transitions feel natural indoors and out.
+              </p>
+            </div>
+
+            {isUrlMode ? (
+              <div className="stats-card">
+                <h2 className="text-lg font-semibold mb-3 text-gray-900 flex items-center gap-2">
+                  🌐 Paste Event or Place URL
+                  <span className="text-xs px-2 py-1 bg-purple-100 text-purple-600 rounded-full uppercase tracking-[0.2em]">
+                    Firecrawl
+                  </span>
                 </h2>
-                <div className="flex items-center gap-1 text-xs">
-                  {!isActive ? (
-                    <>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                      <span className="text-gray-600">Inactive</span>
-                    </>
-                  ) : hasMicPermission ? (
-                    <>
-                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                      <span className="text-blue-600">Audio + Video</span>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-green-600">Active</span>
-                    </>
+                <div className="space-y-3">
+                  <input
+                    type="url"
+                    value={eventUrl}
+                    onChange={(e) => setEventUrl(e.target.value)}
+                    placeholder="https://luma.com/your-event or https://maps.app/..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                  />
+                  <button
+                    onClick={extractEventVibe}
+                    disabled={!eventUrl.trim() || isExtractingEvent}
+                    className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors text-sm disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isExtractingEvent ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Catching vibe…
+                      </>
+                    ) : (
+                      <>
+                        🔍 Catch the Place
+                      </>
+                    )}
+                  </button>
+
+                  {urlVibeError && (
+                    <div className="p-3 bg-red-100 border border-red-300 rounded-lg text-sm text-red-800">
+                      {urlVibeError}
+                    </div>
+                  )}
+
+                  {eventVibeData && (
+                    <div className="p-3 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg text-xs text-gray-700 leading-relaxed">
+                      We found a vibe summary below—review it and press <strong>Catch this Vibe</strong> to drop it into the deck.
+                    </div>
                   )}
                 </div>
               </div>
+            ) : (
+              <div className="stats-card bg-slate-100/60">
+                <h2 className="text-lg font-semibold mb-3 text-gray-900">
+                  Sensor Tips
+                </h2>
+                <ul className="space-y-2 text-sm text-gray-700">
+                  <li>• Set the laptop at chest height to capture motion and smiles.</li>
+                  <li>• Dim lights for chill vibes, brighten for party energy.</li>
+                  <li>• A quick wave resets the vibe capture if it feels off.</li>
+                </ul>
+              </div>
+            )}
+          </div>
 
-              {stats ? (
-                <div className="space-y-3">
-                  <VibeMeter label="Brightness" value={stats.avgBrightness} type="brightness" />
-                  <VibeMeter label="Motion" value={stats.motionLevel} type="motion" />
-                  <VibeMeter label="Faces" value={stats.faces ?? 0} max={10} type="faces" />
-                  <VibeMeter
-                    label="Smiles"
-                    value={stats.smiles ?? 0}
-                    max={Math.max(1, stats.faces ?? 0)}
-                    type="smiles"
-                  />
-                  
-                  {stats.audioVolume !== undefined && (
-                    <VibeMeter label="Audio Level" value={stats.audioVolume} type="motion" />
+          <div className="space-y-6">
+            {isSensorsMode ? (
+              <div className="stats-card">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Live Sensor Metrics
+                  </h2>
+                  <div className="flex items-center gap-1 text-xs">
+                    {!isActive ? (
+                      <>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                        <span className="text-gray-600">Inactive</span>
+                      </>
+                    ) : hasMicPermission ? (
+                      <>
+                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                        <span className="text-blue-600">Audio + Video</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                        <span className="text-green-600">Video only</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {stats ? (
+                  <div className="space-y-3">
+                    <VibeMeter label="Brightness" value={stats.avgBrightness} type="brightness" />
+                    <VibeMeter label="Motion" value={stats.motionLevel} type="motion" />
+                    <VibeMeter label="Faces" value={stats.faces ?? 0} max={10} type="faces" />
+                    <VibeMeter
+                      label="Smiles"
+                      value={stats.smiles ?? 0}
+                      max={Math.max(1, stats.faces ?? 0)}
+                      type="smiles"
+                    />
+                    {typeof stats.audioVolume === 'number' && (
+                      <VibeMeter label="Audio Level" value={stats.audioVolume} type="motion" />
+                    )}
+                    <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
+                      Updated: {new Date().toLocaleTimeString()}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-700 py-8">
+                    Start catching the vibe to see live metrics.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="stats-card">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Place Snapshot
+                  </h2>
+                  {eventVibeData && (
+                    <span className="text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                      {eventVibeData.entityType}
+                    </span>
                   )}
-                  
-                  <div className="text-xs text-gray-600 pt-2 border-t border-gray-200">
-                    Updated: {new Date().toLocaleTimeString()}
-                  </div>
                 </div>
-              ) : (
-                <div className="text-center text-gray-700 py-8">
-                  <div className="text-gray-700">
-                    Start vibe check to see metrics
+
+                {eventVibeData ? (
+                  <div className="space-y-4 text-sm text-gray-700">
+                    <div>
+                      <div className="text-xs uppercase tracking-[0.3em] text-gray-500">
+                        {eventMetadata?.sourceTitle || 'Detected atmosphere'}
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-900">
+                        {eventVibeData.eventTitle || eventVibeData.placeName || 'Untitled venue'}
+                      </h3>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {eventDecisionPreview && (
+                        <span className={`vibe-label vibe-label-${eventDecisionPreview.vibeLabel} inline-block text-xs`}>
+                          {eventDecisionPreview.vibeLabel.toUpperCase()}
+                        </span>
+                      )}
+                      {eventVibeData.eventDate && (
+                        <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs">
+                          {eventVibeData.eventDate}
+                        </span>
+                      )}
+                      {(eventVibeData.eventLocation || eventVibeData.placeAddress) && (
+                        <span className="px-2 py-1 rounded-full bg-gray-100 text-gray-600 text-xs">
+                          {eventVibeData.eventLocation || eventVibeData.placeAddress}
+                        </span>
+                      )}
+                    </div>
+                    <p className="leading-relaxed">
+                      {eventVibeData.vibeDescription || eventVibeData.eventDescription || 'We captured the ambience details for this spot.'}
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
+                      <div>
+                        <div className="font-semibold text-gray-800">Tempo</div>
+                        <div>{eventDecisionPreview?.suggestedBPM ?? '—'} BPM</div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-gray-800">Volume</div>
+                        <div>{eventDecisionPreview ? Math.round(eventDecisionPreview.suggestedVolume * 100) : '—'}%</div>
+                      </div>
+                      {eventVibeData.atmosphere && (
+                        <div className="col-span-2">
+                          <div className="font-semibold text-gray-800">Atmosphere Notes</div>
+                          <div>{eventVibeData.atmosphere}</div>
+                        </div>
+                      )}
+                      {eventVibeData.expectedCrowd && (
+                        <div className="col-span-2">
+                          <div className="font-semibold text-gray-800">Expected Crowd</div>
+                          <div>{eventVibeData.expectedCrowd}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <button
+                        onClick={applyEventVibe}
+                        className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-md transition-colors"
+                      >
+                        ✨ Catch this Vibe
+                      </button>
+                      {eventVibeData.sourceUrl && (
+                        <a
+                          href={eventMetadata?.sourceUrl || eventVibeData.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs text-purple-600 hover:text-purple-700 underline"
+                        >
+                          Open source link
+                        </a>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                ) : (
+                  <div className="text-sm text-gray-600">
+                    Paste a link to preview the venue vibe, tempo, and suggested volume.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1407,20 +1779,20 @@ function VibeCheckPageInner() {
         <div className="mt-6 space-y-6">
           <div className="stats-card">
             <h2 className="text-lg font-semibold mb-4 text-gray-900">
-              Current Vibe
+              Current Soundscape
             </h2>
             {vibeState.decision ? <VibeDisplay decision={vibeState.decision} /> : <NoVibeDisplay />}
             
             {/* How It Works */}
             <div className="mt-6 pt-4 border-t border-gray-200">
               <h3 className="text-md font-medium mb-3 text-gray-800">
-                How It Works
+                How We Tune It
               </h3>
               <div className="text-sm text-gray-600 space-y-1">
-                <p>• <strong>Party:</strong> High motion + multiple faces</p>
-                <p>• <strong>Chill:</strong> Low brightness + minimal motion</p>
-                <p>• <strong>Focused:</strong> Smiles + moderate motion</p>
-                <p>• <strong>Bored:</strong> Low engagement detected</p>
+                <p>• Sensors amplify tempo when the room is bright and high-energy.</p>
+                <p>• Fall back to laid-back grooves when motion and smiles cool off.</p>
+                <p>• Weather nudges warmth, ambience, and percussion intensity.</p>
+                <p>• Event drops inherit crowd + atmosphere cues straight from Firecrawl.</p>
               </div>
             </div>
           </div>

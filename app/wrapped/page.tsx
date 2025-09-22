@@ -302,7 +302,7 @@ export default function WrappedPage() {
           <div className="absolute -inset-4 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg blur opacity-20 -z-10" />
         </div>
         <p className="text-xl text-white/90 leading-relaxed">
-          You're the master of reading the room and <span className="font-semibold text-blue-300">adapting to any crowd</span>.
+          You&apos;re the master of reading the room and <span className="font-semibold text-blue-300">adapting to any crowd</span>.
           Your superpower? Creating the perfect atmosphere for every moment.
         </p>
         <div className="grid grid-cols-2 gap-4 mt-6">
@@ -328,10 +328,10 @@ export default function WrappedPage() {
         <div className="text-6xl">🤖</div>
         <div className="relative">
           <div className="text-3xl italic text-white font-light leading-relaxed">
-            "{DUMMY_WRAPPED_SUMMARY.mostCommonTip}"
+            &ldquo;{DUMMY_WRAPPED_SUMMARY.mostCommonTip}&rdquo;
           </div>
-          <div className="absolute -top-4 -left-4 text-6xl text-white/20">"</div>
-          <div className="absolute -bottom-4 -right-4 text-6xl text-white/20">"</div>
+          <div className="absolute -top-4 -left-4 text-6xl text-white/20">&ldquo;</div>
+          <div className="absolute -bottom-4 -right-4 text-6xl text-white/20">&rdquo;</div>
         </div>
         <p className="text-lg text-white/80">
           Your AI coach gave you <span className="font-bold text-green-300">personalized guidance</span> throughout the year
@@ -358,7 +358,7 @@ export default function WrappedPage() {
       <div className="space-y-6">
         <div className="text-5xl">🎊</div>
         <div className="text-lg text-white/90 mb-6">
-          Here's everything that made your year incredible
+          Here&apos;s everything that made your year incredible
         </div>
         
         {/* Main stats grid */}
@@ -458,7 +458,7 @@ export default function WrappedPage() {
       <div className="space-y-8">
         <div className="text-6xl animate-pulse">✨</div>
         <p className="text-xl text-white/90 leading-relaxed">
-          You've had an <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">incredible year</span> of vibe mastery!
+          You&apos;ve had an <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-400">incredible year</span> of vibe mastery!
         </p>
         <div className="space-y-4">
           <button className="w-full px-8 py-4 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold rounded-full shadow-2xl transition-all duration-300 transform hover:scale-105 text-lg">
