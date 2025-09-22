@@ -26,8 +26,8 @@ export interface WeatherRequest {
   units?: 'metric' | 'imperial';
 }
 
-// WeatherAPI.com configuration
-const WEATHERAPI_KEY = 'ad603fd75c334302981111049252009';
+// WeatherAPI.com configuration (never expose to the client)
+const WEATHERAPI_KEY = process.env.WEATHERAPI_KEY || process.env.OPENWEATHER_API_KEY || '';
 const WEATHERAPI_BASE_URL = 'https://api.weatherapi.com/v1';
 
 // Validate weather request

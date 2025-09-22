@@ -28,7 +28,8 @@ venue listings to seed the vibe manually.
 - Python 3.10+
 - `OPENROUTER_API_KEY` (required for the agent to launch)
 - *(Optional)* `ELEVENLABS_API_KEY` for live music instead of the built-in mocks
-- `FIRECRAWL_API_KEY` for event/venue vibe extraction
+- `FIRECRAWL_API_KEY` for event/venue vibe extraction (server-side only)
+- *(Optional)* `WEATHERAPI_KEY` for live weather cards (server-side only)
 
 ### 1. Backend (AgentOS + ElevenLabs)
 ```bash
@@ -74,6 +75,15 @@ npm run lint    # ESLint / TypeScript / Tailwind checks
 - **Catch the Place + Weather**: Pastes an event/venue link, Firecrawl extracts
   vibe metadata, and a single click on *Catch this Vibe* pushes the summary into
   the music pipeline (no camera required).
+
+## 🔐 Security Notes
+- Browser code never references third-party secrets; all keys live in server-only
+  environment variables (`FIRECRAWL_API_KEY`, `WEATHERAPI_KEY`, etc.).
+- The frontend talks only to our Next.js API routes (`/api/generate-vibe-music`,
+  `/api/extract-event`, `/api/weather`), which proxy outbound calls on the
+  server and filter error payloads before returning to the client.
+- When keys are unset, the API routes return explicit 5xx errors instead of
+  falling back to insecure defaults.
 
 ## 🔄 How the stack talks
 1. The UI captures a snapshot of room stats and interprets a vibe decision.
