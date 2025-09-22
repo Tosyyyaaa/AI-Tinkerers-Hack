@@ -78,6 +78,82 @@ const EVENT_LABEL_MAP: Record<string, VibeDecision['vibeLabel']> = {
   bored: 'bored',
 };
 
+const PLACE_MODE_FEATURES = [
+  {
+    icon: '🧭',
+    text: 'Works with Luma, Eventbrite, Resident Advisor, Google Maps and more.',
+  },
+  {
+    icon: '🎛️',
+    text: 'Surfaces ambience cues, crowd density, and tempo hints for the brief.',
+  },
+  {
+    icon: '🌦️',
+    text: 'Blends each summary with live weather so the soundtrack fits the scene.',
+  },
+];
+
+const SENSOR_MODE_TIPS = [
+  {
+    icon: '📹',
+    text: 'Set the laptop at chest height so we capture motion and smiles clearly.',
+  },
+  {
+    icon: '💡',
+    text: 'Dim for mellow energy or brighten for party vibes before you record.',
+  },
+  {
+    icon: '👋',
+    text: 'Give a quick wave to reset the metrics if the capture feels off.',
+  },
+];
+
+const TUNING_NOTES = [
+  {
+    icon: '🎚️',
+    text: 'Sensors push tempo when the room is bright and high energy.',
+  },
+  {
+    icon: '🌬️',
+    text: 'Low motion cues soften the mix with laid-back grooves.',
+  },
+  {
+    icon: '🌦️',
+    text: 'Weather nudges warmth, ambience, and percussion intensity.',
+  },
+  {
+    icon: '🎟️',
+    text: 'Event drops inherit crowd and atmosphere hints from the vibe scout.',
+  },
+];
+
+function FeatureList({
+  items,
+  textTone = 'light',
+  className,
+}: {
+  items: { icon: string; text: string }[];
+  textTone?: 'light' | 'dark';
+  className?: string;
+}) {
+  const baseColor = textTone === 'dark' ? 'text-gray-600' : 'text-white/80';
+  const spacingClasses = className ? className : 'mt-4';
+
+  return (
+    <ul className={`${spacingClasses} space-y-3`}>
+      {items.map((item) => (
+        <li
+          key={item.text}
+          className={`flex items-start gap-3 text-sm leading-relaxed ${baseColor}`}
+        >
+          <span className="text-base leading-none pt-1">{item.icon}</span>
+          <span>{item.text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function clampToRange(value: number | undefined, min: number, max: number, fallback: number): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return Math.min(max, Math.max(min, value));
@@ -1436,7 +1512,7 @@ function VibeCheckPageInner() {
                   <h2 className="text-lg font-semibold text-gray-900">
                     Catch the Vibe + Weather
                   </h2>
-                  <span className="text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-purple-100 text-purple-600">
+                  <span className="inline-flex items-center justify-center text-center whitespace-nowrap text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-purple-100 text-purple-600">
                     Sensors
                   </span>
                 </div>
@@ -1505,23 +1581,19 @@ function VibeCheckPageInner() {
                 )}
               </div>
             ) : (
-              <div className="stats-card bg-gradient-to-br from-slate-900 via-purple-900 to-slate-950 text-white border border-white/10">
+              <div className="stats-card">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">
+                  <h2 className="text-lg font-semibold text-gray-900">
                     Catch the Place + Weather
                   </h2>
-                  <span className="text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-white/15 text-white/90">
+                  <span className="inline-flex items-center justify-center text-center whitespace-nowrap text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-purple-100 text-purple-600">
                     Vibe Scout
                   </span>
                 </div>
-                <p className="text-sm text-white/80 leading-relaxed">
-                  Drop in an event listing or a coffee spot link. Our vibe scout finds the ambience cues, and we fuse them with the live weather to craft the soundtrack.
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Drop in an event listing or a coffee spot link. We translate the ambience hints, merge them with the live weather, and stage the soundtrack for you.
                 </p>
-                <ul className="mt-4 space-y-2 text-sm text-white/80">
-                  <li>• Works with Luma, Eventbrite, Resident Advisor, Google Maps and more.</li>
-                  <li>• Highlights scene descriptors, crowd density, and tempo hints.</li>
-                  <li>• Auto-balances the mix with the temperature, humidity, and sky cover.</li>
-                </ul>
+                <FeatureList items={PLACE_MODE_FEATURES} textTone="dark" />
               </div>
             )}
           </div>
@@ -1532,7 +1604,7 @@ function VibeCheckPageInner() {
                 <h3 className="text-lg font-semibold text-gray-900">
                   Weather Sync
                 </h3>
-                <span className="text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-blue-100 text-blue-600">
+                <span className="inline-flex items-center justify-center text-center whitespace-nowrap text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-blue-100 text-blue-600">
                   Live
                 </span>
               </div>
@@ -1574,7 +1646,7 @@ function VibeCheckPageInner() {
               <div className="stats-card">
                 <h2 className="text-lg font-semibold mb-3 text-gray-900 flex items-center gap-2">
                   🌐 Paste Event or Place URL
-                  <span className="text-xs px-2 py-1 bg-purple-100 text-purple-600 rounded-full uppercase tracking-[0.2em]">
+                  <span className="inline-flex items-center justify-center text-center whitespace-nowrap text-xs px-2 py-1 bg-purple-100 text-purple-600 rounded-full uppercase tracking-[0.2em]">
                     Vibe Scout
                   </span>
                 </h2>
@@ -1617,15 +1689,11 @@ function VibeCheckPageInner() {
                 </div>
               </div>
             ) : (
-              <div className="stats-card bg-slate-100/60">
+              <div className="stats-card">
                 <h2 className="text-lg font-semibold mb-3 text-gray-900">
                   Sensor Tips
                 </h2>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  <li>• Set the laptop at chest height to capture motion and smiles.</li>
-                  <li>• Dim lights for chill vibes, brighten for party energy.</li>
-                  <li>• A quick wave resets the vibe capture if it feels off.</li>
-                </ul>
+                <FeatureList items={SENSOR_MODE_TIPS} textTone="dark" />
               </div>
             )}
           </div>
@@ -1688,7 +1756,7 @@ function VibeCheckPageInner() {
                     Place Snapshot
                   </h2>
                   {eventVibeData && (
-                    <span className="text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                    <span className="inline-flex items-center justify-center text-center whitespace-nowrap text-xs uppercase tracking-[0.3em] px-2 py-1 rounded-full bg-gray-100 text-gray-600">
                       {eventVibeData.entityType}
                     </span>
                   )}
@@ -1767,7 +1835,7 @@ function VibeCheckPageInner() {
                   </div>
                 ) : (
                   <div className="text-sm text-gray-600">
-                    Paste a link to preview the venue vibe, tempo, and suggested volume.
+                    Drop a URL above and the vibe summary will land here once decoded.
                   </div>
                 )}
               </div>
@@ -1788,12 +1856,7 @@ function VibeCheckPageInner() {
               <h3 className="text-md font-medium mb-3 text-gray-800">
                 How We Tune It
               </h3>
-              <div className="text-sm text-gray-600 space-y-1">
-                <p>• Sensors amplify tempo when the room is bright and high-energy.</p>
-                <p>• Fall back to laid-back grooves when motion and smiles cool off.</p>
-                <p>• Weather nudges warmth, ambience, and percussion intensity.</p>
-                <p>• Event drops inherit crowd + atmosphere cues straight from our vibe scout.</p>
-              </div>
+              <FeatureList items={TUNING_NOTES} textTone="dark" className="mt-2" />
             </div>
           </div>
 

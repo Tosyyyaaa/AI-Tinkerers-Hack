@@ -1,9 +1,14 @@
 
-'use client';
+"use client";
 
 import type { ReactNode } from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { DUMMY_WRAPPED_SUMMARY } from '@/lib/dummyData';
+
+function seededRandom(seed: number) {
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
 
 // Enhanced card component with animations
 type WrappedCardProps = {
@@ -517,18 +522,25 @@ export default function WrappedPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 via-blue-900/50 to-black" />
         <div className="absolute inset-0">
           {/* Animated particles */}
-          {[...Array(20)].map((_, i) => (
+          {[...Array(20)].map((_, i) => {
+            const left = seededRandom(i * 1.7 + 1) * 100;
+            const top = seededRandom(i * 2.3 + 7) * 100;
+            const delay = seededRandom(i * 3.1 + 11) * 3;
+            const duration = 2 + seededRandom(i * 5.9 + 19) * 2;
+
+            return (
             <div
               key={i}
               className="absolute w-2 h-2 bg-white/20 rounded-full animate-pulse"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${2 + Math.random() * 2}s`
+                left: `${left}%`,
+                top: `${top}%`,
+                animationDelay: `${delay}s`,
+                animationDuration: `${duration}s`
               }}
             />
-          ))}
+          );
+          })}
         </div>
       </div>
       

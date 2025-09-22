@@ -29,7 +29,8 @@ venue listings to seed the vibe manually.
 - `OPENROUTER_API_KEY` (required for the agent to launch)
 - *(Optional)* `ELEVENLABS_API_KEY` for live music instead of the built-in mocks
 - `FIRECRAWL_API_KEY` for event/venue vibe extraction (server-side only)
-- *(Optional)* `WEATHERAPI_KEY` for live weather cards (server-side only)
+- *(Optional)* `WEATHERAPI_KEY` for premium weather detail — without it we fall
+  back to Open-Meteo via the server
 
 ### 1. Backend (AgentOS + ElevenLabs)
 ```bash
@@ -78,7 +79,9 @@ npm run lint    # ESLint / TypeScript / Tailwind checks
 
 ## 🔐 Security Notes
 - Browser code never references third-party secrets; all keys live in server-only
-  environment variables (`FIRECRAWL_API_KEY`, `WEATHERAPI_KEY`, etc.).
+  environment variables (`FIRECRAWL_API_KEY`, `WEATHERAPI_KEY`, etc.). When
+  those keys are absent or rejected, the server quietly swaps to Open-Meteo so
+  the UI still shows a forecast.
 - The frontend talks only to our Next.js API routes (`/api/generate-vibe-music`,
   `/api/extract-event`, `/api/weather`), which proxy outbound calls on the
   server and filter error payloads before returning to the client.

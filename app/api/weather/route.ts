@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import http from 'node:http';
+import https from 'node:https';
 
 // Weather data types
 export interface WeatherData {
@@ -29,6 +31,178 @@ export interface WeatherRequest {
 // WeatherAPI.com configuration (never expose to the client)
 const WEATHERAPI_KEY = process.env.WEATHERAPI_KEY || process.env.OPENWEATHER_API_KEY || '';
 const WEATHERAPI_BASE_URL = 'https://api.weatherapi.com/v1';
+const HAS_WEATHERAPI_KEY = Boolean(WEATHERAPI_KEY);
+
+// Open-Meteo fallback (no key required)
+// We rely on Node's native http/https modules instead of fetch for Open-Meteo
+// because undici occasionally fails the TLS handshake in local sandboxes.
+const OPEN_METEO_BASE_URL = 'https://api.open-meteo.com/v1/forecast';
+const OPEN_METEO_GEOCODING_URL = 'https://geocoding-api.open-meteo.com/v1/search';
+
+async function fetchJsonViaNode(url: string) {
+  const parsedUrl = new URL(url);
+  const client = parsedUrl.protocol === 'https:' ? https : http;
+
+  return new Promise<any>((resolve, reject) => {
+    const req = client.request(
+      parsedUrl,
+      {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'vibe-weather-fallback/1.0',
+          Accept: 'application/json',
+        },
+      },
+      (res) => {
+        let body = '';
+        res.setEncoding('utf8');
+
+        res.on('data', (chunk) => {
+          body += chunk;
+        });
+
+        res.on('end', () => {
+          const status = res.statusCode || 0;
+          if (status < 200 || status >= 300) {
+            reject(new Error(`HTTP ${status}`));
+            return;
+          }
+
+          try {
+            resolve(body ? JSON.parse(body) : {});
+          } catch (error) {
+            reject(new Error('Failed to parse weather JSON'));
+          }
+        });
+      }
+    );
+
+    req.on('error', (error) => reject(error));
+    req.setTimeout(10000, () => {
+      req.destroy(new Error('Weather request timed out'));
+    });
+    req.end();
+  });
+}
+
+// Map WMO weather codes to human-readable descriptions
+const WMO_CODE_DESCRIPTIONS: Record<number, string> = {
+  0: 'Clear sky',
+  1: 'Mainly clear',
+  2: 'Partly cloudy',
+  3: 'Overcast',
+  45: 'Fog',
+  48: 'Depositing rime fog',
+  51: 'Light drizzle',
+  53: 'Moderate drizzle',
+  55: 'Dense drizzle',
+  56: 'Light freezing drizzle',
+  57: 'Dense freezing drizzle',
+  61: 'Slight rain',
+  63: 'Moderate rain',
+  65: 'Heavy rain',
+  66: 'Light freezing rain',
+  67: 'Heavy freezing rain',
+  71: 'Slight snow',
+  73: 'Moderate snow',
+  75: 'Heavy snow',
+  77: 'Snow grains',
+  80: 'Slight rain showers',
+  81: 'Moderate rain showers',
+  82: 'Violent rain showers',
+  85: 'Slight snow showers',
+  86: 'Heavy snow showers',
+  95: 'Thunderstorm',
+  96: 'Thunderstorm with slight hail',
+  99: 'Thunderstorm with heavy hail',
+};
+
+// Map WMO codes to WeatherAPI icon codes so the UI keeps working
+const WMO_TO_WEATHERAPI_ICON: Record<number, string> = {
+  0: '113',
+  1: '116',
+  2: '116',
+  3: '119',
+  45: '143',
+  48: '143',
+  51: '266',
+  53: '293',
+  55: '299',
+  56: '281',
+  57: '284',
+  61: '296',
+  63: '302',
+  65: '308',
+  66: '311',
+  67: '314',
+  71: '323',
+  73: '326',
+  75: '329',
+  77: '332',
+  80: '353',
+  81: '356',
+  82: '359',
+  85: '365',
+  86: '368',
+  95: '389',
+  96: '392',
+  99: '395',
+};
+
+function mapWmoToWeatherData({
+  latitude,
+  longitude,
+  timezone,
+  current,
+  daily,
+  city,
+  units,
+}: {
+  latitude: number;
+  longitude: number;
+  timezone: string;
+  current: any;
+  daily?: any;
+  city?: string;
+  units: 'metric' | 'imperial';
+}): WeatherData {
+  const code: number = typeof current.weather_code === 'number' ? current.weather_code : 0;
+  const description = WMO_CODE_DESCRIPTIONS[code] || 'Weather update';
+  const icon = WMO_TO_WEATHERAPI_ICON[code] || '119';
+
+  const sunrise = daily?.sunrise?.[0] ?? 0;
+  const sunset = daily?.sunset?.[0] ?? 0;
+
+  const windSpeedValue = Math.round(current.wind_speed_10m ?? 0);
+
+  const rawVisibility = typeof current.visibility === 'number' ? current.visibility : 0;
+  const visibilityInKm = rawVisibility / 1000;
+  const visibility = units === 'imperial'
+    ? Math.round(visibilityInKm * 0.621371)
+    : Math.round(visibilityInKm);
+
+  const location = city
+    ? city
+    : `Lat ${latitude.toFixed(2)}, Lon ${longitude.toFixed(2)} (${timezone})`;
+
+  return {
+    location,
+    temperature: Math.round(current.temperature_2m ?? 0),
+    feelsLike: Math.round(current.apparent_temperature ?? current.temperature_2m ?? 0),
+    humidity: Math.round(current.relative_humidity_2m ?? 0),
+    pressure: Math.round(current.pressure_msl ?? 0),
+    visibility,
+    uvIndex: Math.max(0, Math.round(current.uv_index ?? 0)),
+    windSpeed: windSpeedValue,
+    windDirection: Math.round(current.wind_direction_10m ?? 0),
+    description,
+    icon,
+    sunrise,
+    sunset,
+    cloudiness: Math.round(current.cloud_cover ?? 0),
+    timestamp: current.time ?? Math.floor(Date.now() / 1000),
+  };
+}
 
 // Validate weather request
 function validateWeatherRequest(data: any): WeatherRequest | null {
@@ -101,12 +275,105 @@ function transformWeatherData(data: any): WeatherData {
   };
 }
 
+async function geocodeCity(city: string): Promise<{ lat: number; lon: number; label: string }> {
+  const geoUrl = new URL(OPEN_METEO_GEOCODING_URL);
+  geoUrl.searchParams.set('name', city);
+  geoUrl.searchParams.set('count', '1');
+  geoUrl.searchParams.set('language', 'en');
+  geoUrl.searchParams.set('format', 'json');
+
+  const response = await fetch(geoUrl.toString(), { cache: 'no-store' });
+  if (!response.ok) {
+    throw new Error(`Geocoding failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+  const result = data.results?.[0];
+  if (!result) {
+    throw new Error('City not found');
+  }
+
+  const labelParts = [result.name, result.country].filter(Boolean);
+
+  return {
+    lat: result.latitude,
+    lon: result.longitude,
+    label: labelParts.join(', '),
+  };
+}
+
+async function getWeatherByCoordsOpenMeteo(
+  lat: number,
+  lon: number,
+  units: 'metric' | 'imperial',
+  cityLabel?: string,
+): Promise<WeatherData> {
+  const params = new URLSearchParams({
+    latitude: lat.toString(),
+    longitude: lon.toString(),
+    current: 'temperature_2m,apparent_temperature,relative_humidity_2m,pressure_msl,cloud_cover,wind_speed_10m,wind_direction_10m,visibility,weather_code,uv_index',
+    daily: 'sunrise,sunset',
+    timezone: 'auto',
+    timeformat: 'unixtime',
+    forecast_days: '1',
+    temperature_unit: units === 'imperial' ? 'fahrenheit' : 'celsius',
+    windspeed_unit: units === 'imperial' ? 'mph' : 'kmh',
+    precipitation_unit: 'mm',
+  });
+
+  const url = `${OPEN_METEO_BASE_URL}?${params.toString()}`;
+  const data = await fetchJsonViaNode(url);
+
+  if (!data?.current) {
+    throw new Error('Invalid Open-Meteo response');
+  }
+
+  return mapWmoToWeatherData({
+    latitude: data.latitude,
+    longitude: data.longitude,
+    timezone: data.timezone,
+    current: data.current,
+    daily: data.daily,
+    city: cityLabel,
+    units,
+  });
+}
+
+async function getWeatherByCityOpenMeteo(city: string, units: 'metric' | 'imperial'): Promise<WeatherData> {
+  const { lat, lon, label } = await geocodeCity(city);
+  return getWeatherByCoordsOpenMeteo(lat, lon, units, label);
+}
+
+async function fetchWeatherByCoords(lat: number, lon: number, units: 'metric' | 'imperial') {
+  if (HAS_WEATHERAPI_KEY) {
+    try {
+      return await getWeatherByCoords(lat, lon, units);
+    } catch (error) {
+      console.warn('WeatherAPI coords lookup failed, falling back to Open-Meteo:', error);
+    }
+  }
+
+  return getWeatherByCoordsOpenMeteo(lat, lon, units);
+}
+
+async function fetchWeatherByCity(city: string, units: 'metric' | 'imperial') {
+  if (HAS_WEATHERAPI_KEY) {
+    try {
+      return await getWeatherByCity(city, units);
+    } catch (error) {
+      console.warn('WeatherAPI city lookup failed, falling back to Open-Meteo:', error);
+    }
+  }
+
+  return getWeatherByCityOpenMeteo(city, units);
+}
+
 // Get weather by coordinates
 async function getWeatherByCoords(lat: number, lon: number, units: string): Promise<WeatherData> {
   // WeatherAPI.com includes astronomy data by default with forecast
   const url = `${WEATHERAPI_BASE_URL}/current.json?key=${WEATHERAPI_KEY}&q=${lat},${lon}&aqi=no`;
   
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
     throw new Error(`Weather API error: ${response.status}`);
   }
@@ -116,7 +383,7 @@ async function getWeatherByCoords(lat: number, lon: number, units: string): Prom
   // Fetch astronomy data separately for sunrise/sunset
   const astroUrl = `${WEATHERAPI_BASE_URL}/astronomy.json?key=${WEATHERAPI_KEY}&q=${lat},${lon}&dt=${new Date().toISOString().split('T')[0]}`;
   try {
-    const astroResponse = await fetch(astroUrl);
+    const astroResponse = await fetch(astroUrl, { cache: 'no-store' });
     if (astroResponse.ok) {
       const astroData = await astroResponse.json();
       data.forecast = {
@@ -136,7 +403,7 @@ async function getWeatherByCoords(lat: number, lon: number, units: string): Prom
 async function getWeatherByCity(city: string, units: string): Promise<WeatherData> {
   const url = `${WEATHERAPI_BASE_URL}/current.json?key=${WEATHERAPI_KEY}&q=${encodeURIComponent(city)}&aqi=no`;
   
-  const response = await fetch(url);
+  const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) {
     if (response.status === 400) {
       const errorData = await response.json().catch(() => ({}));
@@ -152,7 +419,7 @@ async function getWeatherByCity(city: string, units: string): Promise<WeatherDat
   // Fetch astronomy data separately for sunrise/sunset
   const astroUrl = `${WEATHERAPI_BASE_URL}/astronomy.json?key=${WEATHERAPI_KEY}&q=${encodeURIComponent(city)}&dt=${new Date().toISOString().split('T')[0]}`;
   try {
-    const astroResponse = await fetch(astroUrl);
+    const astroResponse = await fetch(astroUrl, { cache: 'no-store' });
     if (astroResponse.ok) {
       const astroData = await astroResponse.json();
       data.forecast = {
@@ -171,14 +438,6 @@ async function getWeatherByCity(city: string, units: string): Promise<WeatherDat
 // GET endpoint for weather data
 export async function GET(request: NextRequest) {
   try {
-    // Check API key
-    if (!WEATHERAPI_KEY) {
-      return NextResponse.json(
-        { error: 'Weather API key not configured' },
-        { status: 500 }
-      );
-    }
-
     const { searchParams } = new URL(request.url);
     const lat = searchParams.get('lat');
     const lon = searchParams.get('lon');
@@ -205,18 +464,21 @@ export async function GET(request: NextRequest) {
     try {
       // Get weather data
       if (weatherRequest.lat !== undefined && weatherRequest.lon !== undefined) {
-        weatherData = await getWeatherByCoords(
+        weatherData = await fetchWeatherByCoords(
           weatherRequest.lat,
           weatherRequest.lon,
           weatherRequest.units!
         );
       } else if (weatherRequest.city) {
-        weatherData = await getWeatherByCity(weatherRequest.city, weatherRequest.units!);
+        weatherData = await fetchWeatherByCity(weatherRequest.city, weatherRequest.units!);
       } else {
         throw new Error('No valid location provided');
       }
 
-      return NextResponse.json({ weather: weatherData });
+      return NextResponse.json({
+        weather: weatherData,
+        source: HAS_WEATHERAPI_KEY ? 'weatherapi' : 'open-meteo',
+      });
 
     } catch (weatherError) {
       console.error('Weather API error:', weatherError);
@@ -250,14 +512,6 @@ export async function GET(request: NextRequest) {
 // POST endpoint for weather data (same functionality, different method)
 export async function POST(request: NextRequest) {
   try {
-    // Check API key
-    if (!WEATHERAPI_KEY) {
-      return NextResponse.json(
-        { error: 'Weather API key not configured' },
-        { status: 500 }
-      );
-    }
-
     // Parse and validate request body
     const body = await request.json();
     const weatherRequest = validateWeatherRequest(body);
@@ -274,18 +528,21 @@ export async function POST(request: NextRequest) {
     try {
       // Get weather data
       if (weatherRequest.lat !== undefined && weatherRequest.lon !== undefined) {
-        weatherData = await getWeatherByCoords(
+        weatherData = await fetchWeatherByCoords(
           weatherRequest.lat,
           weatherRequest.lon,
           weatherRequest.units!
         );
       } else if (weatherRequest.city) {
-        weatherData = await getWeatherByCity(weatherRequest.city, weatherRequest.units!);
+        weatherData = await fetchWeatherByCity(weatherRequest.city, weatherRequest.units!);
       } else {
         throw new Error('No valid location provided');
       }
 
-      return NextResponse.json({ weather: weatherData });
+      return NextResponse.json({
+        weather: weatherData,
+        source: HAS_WEATHERAPI_KEY ? 'weatherapi' : 'open-meteo',
+      });
 
     } catch (weatherError) {
       console.error('Weather API error:', weatherError);
