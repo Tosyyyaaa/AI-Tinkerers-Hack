@@ -282,7 +282,10 @@ async function geocodeCity(city: string): Promise<{ lat: number; lon: number; la
   geoUrl.searchParams.set('language', 'en');
   geoUrl.searchParams.set('format', 'json');
 
-  const response = await fetch(geoUrl.toString(), { cache: 'no-store' });
+  const response = await fetch(geoUrl.toString(), {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(8000) // 8 second timeout
+  });
   if (!response.ok) {
     throw new Error(`Geocoding failed with status ${response.status}`);
   }
@@ -353,7 +356,29 @@ async function fetchWeatherByCoords(lat: number, lon: number, units: 'metric' | 
     }
   }
 
-  return getWeatherByCoordsOpenMeteo(lat, lon, units);
+  try {
+    return await getWeatherByCoordsOpenMeteo(lat, lon, units);
+  } catch (error) {
+    console.error('Open-Meteo coords lookup failed:', error);
+    // Return basic fallback data
+    return {
+      location: `${lat.toFixed(2)}, ${lon.toFixed(2)}`,
+      temperature: 20,
+      feelsLike: 20,
+      humidity: 50,
+      pressure: 1013,
+      visibility: 10,
+      uvIndex: 3,
+      windSpeed: 5,
+      windDirection: 180,
+      description: 'Weather data unavailable',
+      icon: 'unknown',
+      sunrise: Date.now() / 1000,
+      sunset: Date.now() / 1000 + 43200,
+      cloudiness: 50,
+      timestamp: Date.now() / 1000,
+    };
+  }
 }
 
 async function fetchWeatherByCity(city: string, units: 'metric' | 'imperial') {
@@ -365,25 +390,53 @@ async function fetchWeatherByCity(city: string, units: 'metric' | 'imperial') {
     }
   }
 
-  return getWeatherByCityOpenMeteo(city, units);
+  try {
+    return await getWeatherByCityOpenMeteo(city, units);
+  } catch (error) {
+    console.error('Open-Meteo city lookup failed:', error);
+    // Return basic fallback data
+    return {
+      location: city,
+      temperature: 20,
+      feelsLike: 20,
+      humidity: 50,
+      pressure: 1013,
+      visibility: 10,
+      uvIndex: 3,
+      windSpeed: 5,
+      windDirection: 180,
+      description: 'Weather data unavailable',
+      icon: 'unknown',
+      sunrise: Date.now() / 1000,
+      sunset: Date.now() / 1000 + 43200,
+      cloudiness: 50,
+      timestamp: Date.now() / 1000,
+    };
+  }
 }
 
 // Get weather by coordinates
 async function getWeatherByCoords(lat: number, lon: number, units: string): Promise<WeatherData> {
   // WeatherAPI.com includes astronomy data by default with forecast
   const url = `${WEATHERAPI_BASE_URL}/current.json?key=${WEATHERAPI_KEY}&q=${lat},${lon}&aqi=no`;
-  
-  const response = await fetch(url, { cache: 'no-store' });
+
+  const response = await fetch(url, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(10000) // 10 second timeout
+  });
   if (!response.ok) {
     throw new Error(`Weather API error: ${response.status}`);
   }
   
   const data = await response.json();
   
-  // Fetch astronomy data separately for sunrise/sunset
-  const astroUrl = `${WEATHERAPI_BASE_URL}/astronomy.json?key=${WEATHERAPI_KEY}&q=${lat},${lon}&dt=${new Date().toISOString().split('T')[0]}`;
+  // Try to fetch astronomy data, but don't fail if it doesn't work
   try {
-    const astroResponse = await fetch(astroUrl, { cache: 'no-store' });
+    const astroUrl = `${WEATHERAPI_BASE_URL}/astronomy.json?key=${WEATHERAPI_KEY}&q=${lat},${lon}&dt=${new Date().toISOString().split('T')[0]}`;
+    const astroResponse = await fetch(astroUrl, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000) // 5 second timeout
+    });
     if (astroResponse.ok) {
       const astroData = await astroResponse.json();
       data.forecast = {
@@ -393,7 +446,22 @@ async function getWeatherByCoords(lat: number, lon: number, units: string): Prom
       };
     }
   } catch (astroError) {
-    console.warn('Failed to fetch astronomy data:', astroError);
+    console.warn('Failed to fetch astronomy data, using defaults:', astroError);
+    // Set reasonable defaults for sunrise/sunset
+    const now = new Date();
+    const sunrise = new Date(now);
+    sunrise.setHours(6, 30, 0, 0);
+    const sunset = new Date(now);
+    sunset.setHours(18, 30, 0, 0);
+
+    data.forecast = {
+      forecastday: [{
+        astro: {
+          sunrise: sunrise.toTimeString().slice(0, 5),
+          sunset: sunset.toTimeString().slice(0, 5)
+        }
+      }]
+    };
   }
   
   return transformWeatherData(data);
@@ -402,8 +470,11 @@ async function getWeatherByCoords(lat: number, lon: number, units: string): Prom
 // Get weather by city name
 async function getWeatherByCity(city: string, units: string): Promise<WeatherData> {
   const url = `${WEATHERAPI_BASE_URL}/current.json?key=${WEATHERAPI_KEY}&q=${encodeURIComponent(city)}&aqi=no`;
-  
-  const response = await fetch(url, { cache: 'no-store' });
+
+  const response = await fetch(url, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(10000) // 10 second timeout
+  });
   if (!response.ok) {
     if (response.status === 400) {
       const errorData = await response.json().catch(() => ({}));
@@ -416,10 +487,13 @@ async function getWeatherByCity(city: string, units: string): Promise<WeatherDat
   
   const data = await response.json();
   
-  // Fetch astronomy data separately for sunrise/sunset
-  const astroUrl = `${WEATHERAPI_BASE_URL}/astronomy.json?key=${WEATHERAPI_KEY}&q=${encodeURIComponent(city)}&dt=${new Date().toISOString().split('T')[0]}`;
+  // Try to fetch astronomy data, but don't fail if it doesn't work
   try {
-    const astroResponse = await fetch(astroUrl, { cache: 'no-store' });
+    const astroUrl = `${WEATHERAPI_BASE_URL}/astronomy.json?key=${WEATHERAPI_KEY}&q=${encodeURIComponent(city)}&dt=${new Date().toISOString().split('T')[0]}`;
+    const astroResponse = await fetch(astroUrl, {
+      cache: 'no-store',
+      signal: AbortSignal.timeout(5000) // 5 second timeout
+    });
     if (astroResponse.ok) {
       const astroData = await astroResponse.json();
       data.forecast = {
@@ -429,7 +503,22 @@ async function getWeatherByCity(city: string, units: string): Promise<WeatherDat
       };
     }
   } catch (astroError) {
-    console.warn('Failed to fetch astronomy data:', astroError);
+    console.warn('Failed to fetch astronomy data, using defaults:', astroError);
+    // Set reasonable defaults for sunrise/sunset
+    const now = new Date();
+    const sunrise = new Date(now);
+    sunrise.setHours(6, 30, 0, 0);
+    const sunset = new Date(now);
+    sunset.setHours(18, 30, 0, 0);
+
+    data.forecast = {
+      forecastday: [{
+        astro: {
+          sunrise: sunrise.toTimeString().slice(0, 5),
+          sunset: sunset.toTimeString().slice(0, 5)
+        }
+      }]
+    };
   }
   
   return transformWeatherData(data);

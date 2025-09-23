@@ -78,7 +78,7 @@ export function useWeather(config: Partial<WeatherConfig> = {}) {
         {
           enableHighAccuracy: false,
           timeout: 10000,
-          maximumAge: 300000, // 5 minutes cache
+          maximumAge: 1800000, // 30 minutes cache (reduced API calls)
         }
       );
     });

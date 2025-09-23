@@ -427,6 +427,7 @@ function GeneratedTrackWidget({
   onPause,
   onReset,
   error,
+  isGenerating = false,
 }: {
   track: GeneratedTrack | null;
   playbackState: LocalPlayerState;
@@ -435,6 +436,7 @@ function GeneratedTrackWidget({
   onPause: () => Promise<void>;
   onReset: () => Promise<void>;
   error: string | null;
+  isGenerating?: boolean;
 }) {
   const progress = track && playbackState.duration
     ? Math.min(100, (playbackState.currentTime / playbackState.duration) * 100)
@@ -506,37 +508,49 @@ function GeneratedTrackWidget({
             <button
               onClick={() => { void onPlay(); }}
               disabled={isPlaying || !track.url}
-              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md text-sm transition-colors"
+              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white rounded-md text-sm transition-all duration-200 hover:transform hover:scale-[1.05] active:scale-[0.95]"
             >
               ▶️ Play
             </button>
             <button
               onClick={() => { void onPause(); }}
               disabled={!isPlaying}
-              className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 rounded-md text-sm transition-colors"
+              className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-gray-800 dark:text-gray-200 rounded-md text-sm transition-all duration-200 hover:transform hover:scale-[1.05] active:scale-[0.95]"
             >
               ⏸️ Pause
             </button>
             <button
               onClick={() => { void onReset(); }}
-              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-md text-sm transition-colors"
+              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-md text-sm transition-all duration-200 hover:transform hover:scale-[1.05] active:scale-[0.95]"
             >
               🔄 Reset
             </button>
             <a
               href={track.url}
               download={`${track.id || 'ai-track'}.mp3`}
-              className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/50 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-200 rounded-md text-sm transition-colors"
+              className="px-3 py-1.5 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/50 dark:hover:bg-blue-900 text-blue-700 dark:text-blue-200 rounded-md text-sm transition-all duration-200 hover:transform hover:scale-[1.05] active:scale-[0.95]"
             >
               ⬇️ Download
             </a>
           </div>
 
           {error && (
-            <div className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1">
+            <div className="text-xs text-red-500 dark:text-red-400 flex items-center gap-1 animate-fade-in-up">
               ⚠️ {error}
             </div>
           )}
+        </div>
+      ) : isGenerating ? (
+        <div className="flex items-center justify-center gap-3 py-8">
+          <div className="animate-spin rounded-full h-6 w-6 border-2 border-purple-600 border-t-transparent"></div>
+          <div className="space-y-1">
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              Generating AI Track...
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              This usually takes 20-45 seconds
+            </div>
+          </div>
         </div>
       ) : (
         <div className="text-sm text-gray-600 dark:text-gray-300">
@@ -658,70 +672,6 @@ function NoVibeDisplay() {
   );
 }
 
-// Weather widget component
-function WeatherWidget() {
-  const {
-    data: weather,
-    isLoading: weatherLoading,
-    error: weatherError
-  } = useWeather();
-
-  if (weatherLoading) {
-    return (
-      <div className="stats-card">
-        <h2 className="text-lg font-semibold mb-4 text-gray-900">Weather</h2>
-        <div className="text-center py-8 text-gray-700">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto mb-2"></div>
-          <div>Loading weather...</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (weatherError) {
-    return (
-      <div className="stats-card">
-        <h2 className="text-lg font-semibold mb-4 text-gray-900">Weather</h2>
-        <div className="text-center py-8 text-gray-700">
-          <div className="text-red-600">Failed to load weather</div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!weather) {
-    return (
-      <div className="stats-card">
-        <h2 className="text-lg font-semibold mb-4 text-gray-900">Weather</h2>
-        <div className="text-center py-8 text-gray-700">
-          <div>No weather data</div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="stats-card">
-      <h2 className="text-lg font-semibold mb-4 text-gray-900 flex items-center gap-2">
-        🌤️ Weather
-        <span className="text-xs text-gray-600">{weather.location}</span>
-        </h2>
-      
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-2xl font-bold text-gray-900">{Math.round(weather.temperature)}°C</div>
-            <div className="text-sm text-gray-600 capitalize">{weather.description}</div>
-          </div>
-          <div className="text-right text-sm text-gray-600 space-y-1">
-            <div>Feels like {Math.round(weather.feelsLike)}°C</div>
-            <div>Humidity: {weather.humidity}%</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Main vibe check page component
 function VibeCheckPageInner() {
@@ -775,12 +725,15 @@ function VibeCheckPageInner() {
   const captureMetricsHistoryRef = useRef<StatsHistoryEntry[]>([]);
 
 
-  // Weather data
+  // Weather data - with reduced refresh rate
   const {
     data: weather,
     isLoading: weatherLoading,
     error: weatherError
-  } = useWeather();
+  } = useWeather({
+    updateInterval: 1800000, // 30 minutes instead of 10
+    autoRefresh: false // disable auto-refresh, fetch on demand
+  });
 
   // Vibe sensors
   const {
@@ -1474,7 +1427,7 @@ function VibeCheckPageInner() {
           </div>
         </div>
 
-        <div className={`grid grid-cols-1 gap-6 ${isUrlMode ? 'lg:grid-cols-2 xl:grid-cols-3' : 'lg:grid-cols-3'}`}>
+        <div className={`grid grid-cols-1 gap-6 transition-all duration-300 ${isUrlMode ? 'lg:grid-cols-2 xl:grid-cols-3' : 'lg:grid-cols-3'}`}>
           <div className={`${isSensorsMode ? 'lg:col-span-2' : ''} space-y-6`}>
             {isSensorsMode ? (
               <div className="stats-card">
@@ -1545,7 +1498,7 @@ function VibeCheckPageInner() {
                 </div>
 
                 {vibeState.error && (
-                  <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-lg text-sm text-red-800">
+                  <div className="mt-4 p-3 bg-red-100 border border-red-300 rounded-lg text-sm text-red-800 animate-fade-in-up">
                     {vibeState.error}
                   </div>
                 )}
@@ -1626,12 +1579,12 @@ function VibeCheckPageInner() {
                     value={eventUrl}
                     onChange={(e) => setEventUrl(e.target.value)}
                     placeholder="https://luma.com/your-event or https://maps.app/..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm transition-all duration-200 hover:border-purple-300 focus:scale-[1.01]"
                   />
                   <button
                     onClick={extractEventVibe}
                     disabled={!eventUrl.trim() || isExtractingEvent}
-                    className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-colors text-sm disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white rounded-lg font-medium transition-all duration-200 hover:transform hover:scale-[1.02] active:scale-[0.98] text-sm disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {isExtractingEvent ? (
                       <>
@@ -1646,13 +1599,13 @@ function VibeCheckPageInner() {
                   </button>
 
                   {urlVibeError && (
-                    <div className="p-3 bg-red-100 border border-red-300 rounded-lg text-sm text-red-800">
+                    <div className="p-3 bg-red-100 border border-red-300 rounded-lg text-sm text-red-800 animate-fade-in-up">
                       {urlVibeError}
                     </div>
                   )}
 
                   {eventVibeData && (
-                    <div className="p-3 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg text-xs text-gray-700 leading-relaxed">
+                    <div className="p-3 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg text-xs text-gray-700 leading-relaxed animate-fade-in-up">
                       We found a vibe summary below—review it and press <strong>Catch this Vibe</strong> to drop it into the deck.
                     </div>
                   )}
@@ -1668,7 +1621,7 @@ function VibeCheckPageInner() {
             )}
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in-up" style={{animationDelay: '0.1s'}}>
             {isSensorsMode ? (
               <div className="stats-card">
                 <div className="flex items-center justify-between mb-4">
@@ -1787,7 +1740,7 @@ function VibeCheckPageInner() {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <button
                         onClick={applyEventVibe}
-                        className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-md transition-colors"
+                        className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-md transition-all duration-200 hover:transform hover:scale-[1.02] active:scale-[0.98]"
                       >
                         ✨ Catch this Vibe
                       </button>
@@ -1814,7 +1767,7 @@ function VibeCheckPageInner() {
         </div>
 
         {/* Bottom Row: Current Vibe */}
-        <div className="mt-6 space-y-6">
+        <div className="mt-6 space-y-6 animate-fade-in-up" style={{animationDelay: '0.2s'}}>
           <div className="stats-card">
             <h2 className="text-lg font-semibold mb-4 text-gray-900">
               Current Soundscape
@@ -1838,6 +1791,7 @@ function VibeCheckPageInner() {
             onPause={handlePausePlayback}
             onReset={handleResetPlayback}
             error={playerError}
+            isGenerating={vibeState.isAnalyzing}
           />
         </div>
       </div>
